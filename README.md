@@ -20,8 +20,8 @@ To get the API keys, follow the onshape-to-robot documentation
 the key textis formatted as follow: <br>
 ```
 export ONSHAPE_API=https://cad.onshape.com
-export ONSHAPE_ACCESS_KEY= https://onshape-to-robot.readthedocs.io/en/latest/getting_started.html#using-bashrc
-export ONSHAPE_SECRET_KEY= https://onshape-to-robot.readthedocs.io/en/latest/getting_started.html#using-bashrc
+export ONSHAPE_ACCESS_KEY=https://onshape-to-robot.readthedocs.io/en/latest/getting_started.html#using-bashrc
+export ONSHAPE_SECRET_KEY=https://onshape-to-robot.readthedocs.io/en/latest/getting_started.html#using-bashrc
 ```
 
 The config.json file should look like this:
