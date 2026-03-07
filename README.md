@@ -15,17 +15,15 @@ onshape-to-robot was used to convert the onshape model assembly into .urdf, whic
 https://github.com/Rhoban/onshape-to-robot <br>
 https://onshape-to-robot.readthedocs.io/
 
-If you want to use your own hexapod model, you should add a keys and a config.json file in a folder
+If you want to use your own hexapod model, you should modify the keys and a config.json to generate your own assets.
 To get the API keys, follow the onshape-to-robot documentation
-the key textis formatted as follow: <br>
+keys file: <br>
 ```
 export ONSHAPE_API=https://cad.onshape.com
 export ONSHAPE_ACCESS_KEY=https://onshape-to-robot.readthedocs.io/en/latest/getting_started.html#using-bashrc
 export ONSHAPE_SECRET_KEY=https://onshape-to-robot.readthedocs.io/en/latest/getting_started.html#using-bashrc
 ```
-
-The config.json file should look like this:
-
+config.json file:
 ```
 {        
     "documentId": "https://onshape-to-robot.readthedocs.io/en/latest/config.html",
