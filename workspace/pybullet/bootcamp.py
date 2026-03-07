@@ -1,7 +1,6 @@
 import pybullet as p
 import numpy as np
 
-# Global Configuration
 DIFFICULTY  = 3.0
 DIFF_MIN    = 1.0
 DIFF_MAX    = 5.0
