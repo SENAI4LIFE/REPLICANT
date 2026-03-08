@@ -14,7 +14,7 @@ run_command("git commit -m 'first commit'")
 run_command("git branch -D main", allow_fail=True)
 run_command("git branch -m main")
 
-print("\n type yes to overwrite the history on GitHub.")
+print("\n This action will overwrite the history on GitHub.")
 confirm = input("Type 'yes' to force push: ")
 
 if confirm.lower() == 'yes':
