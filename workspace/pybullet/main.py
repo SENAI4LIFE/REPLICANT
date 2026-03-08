@@ -336,6 +336,7 @@ def main():
     KEY_X = ord('x')
     KEY_B = ord('b')
     KEY_Z = ord('z')
+    KEY_N = ord('n')
 
     UP    = p.B3G_UP_ARROW
     DOWN  = p.B3G_DOWN_ARROW
@@ -389,6 +390,8 @@ def main():
         if state in ("IDLE", "WALKING", "TURNING", "BALANCE", "REBOLAR", "POSE"):
             if last_key == KEY_B:
                 state = "REBOLAR"
+            elif last_key == KEY_N:
+                state = "BALANCE"
             elif z_held:
                 state = "POSE"
                 if up_dn[0]:
