@@ -10,6 +10,8 @@ DT            = 1.0 / SIM_FREQ
 TOTAL_PONTOS  = 25
 METADE_PONTOS = TOTAL_PONTOS // 2
 
+TOTAL_PONTOS_CIRCULAR = 25
+
 L1 = 2.56
 L2 = 9.00
 L3 = 11.96
@@ -141,6 +143,19 @@ def bezier_pata(xyz_ini, k, dx, dy, dz, total):
     else:
         x, y, z = Px[3], Py[3], Pz[3]
     return np.array([x, y, z])
+
+def circular_roll_pitch_yaw(k, angle_max_deg):
+    angle_max_rad = angle_max_deg * _RAD
+    kn = k % TOTAL_PONTOS_CIRCULAR
+    t  = float(kn) / TOTAL_PONTOS_CIRCULAR
+    angle_rad = 2.0 * _PI * t
+    roll_deg  = math.cos(angle_rad) * angle_max_rad * _DEG
+    pitch_deg = math.sin(angle_rad) * angle_max_rad * _DEG
+    return roll_deg, pitch_deg, 0.0
+
+def compute_rebolar(k, xyz_ini):
+    roll_deg, pitch_deg, yaw_deg = circular_roll_pitch_yaw(k, 10)
+    return compute_ik_corpo(roll_deg, pitch_deg, yaw_deg, xyz_ini)
 
 def setup_simulation():
     p.connect(p.GUI)
@@ -309,6 +324,10 @@ def main():
     smoothed_rpy   = [0.0, 0.0, 0.0]
     angle_joystick = 0.0
     last_key       = None
+    pose_roll      = 0.0
+    pose_pitch     = 0.0
+    POSE_MAX       = 15.0
+    POSE_STEP      = 1.5
 
     KEY_E = ord('e')
     KEY_R = ord('r')
@@ -316,6 +335,7 @@ def main():
     KEY_C = ord('c')
     KEY_X = ord('x')
     KEY_B = ord('b')
+    KEY_Z = ord('z')
 
     UP    = p.B3G_UP_ARROW
     DOWN  = p.B3G_DOWN_ARROW
@@ -353,7 +373,7 @@ def main():
             k     = 0
             state = "IDLE"
 
-        elif last_key == KEY_R and state in ("IDLE", "WALKING", "TURNING", "BALANCE"):
+        elif last_key == KEY_R and state in ("IDLE", "WALKING", "TURNING", "BALANCE", "REBOLAR", "POSE"):
             run_shutdown_sequence(robot, xyz_ini)
             state = "POWERED_OFF"
 
@@ -364,9 +384,21 @@ def main():
 
         moving = any(up_dn) or any(lr)
 
-        if state in ("IDLE", "WALKING", "TURNING", "BALANCE"):
+        z_held = KEY_Z in keys and keys[KEY_Z] & p.KEY_IS_DOWN
+
+        if state in ("IDLE", "WALKING", "TURNING", "BALANCE", "REBOLAR", "POSE"):
             if last_key == KEY_B:
-                state = "BALANCE"
+                state = "REBOLAR"
+            elif z_held:
+                state = "POSE"
+                if up_dn[0]:
+                    pose_pitch = max(-POSE_MAX, pose_pitch - POSE_STEP)
+                elif up_dn[1]:
+                    pose_pitch = min( POSE_MAX, pose_pitch + POSE_STEP)
+                if lr[0]:
+                    pose_roll  = max(-POSE_MAX, pose_roll  - POSE_STEP)
+                elif lr[1]:
+                    pose_roll  = min( POSE_MAX, pose_roll  + POSE_STEP)
             elif moving:
                 if nav_mode == "OMNI":
                     if   up_dn[0]: angle_joystick = 180.0
@@ -381,7 +413,11 @@ def main():
                     elif lr[1]:    angle_joystick = 90.0
                     state = "TURNING"
             else:
-                if state not in ("IDLE", "POWERED_OFF"):
+                if state not in ("IDLE", "POWERED_OFF", "REBOLAR", "POSE"):
+                    state = "IDLE"
+                if state == "POSE" and not z_held:
+                    pose_roll  = 0.0
+                    pose_pitch = 0.0
                     state = "IDLE"
 
         if state == "WALKING":
@@ -405,6 +441,17 @@ def main():
             results = compute_ik_corpo(roll_deg, pitch_deg, 0.0, xyz_ini)
             for i, (o, f, t) in enumerate(results):
                 set_leg(robot, LEG_CONFIGS[i], o, f, t)
+
+        elif state == "POSE":
+            results = compute_ik_corpo(pose_roll, pose_pitch, 0.0, xyz_ini)
+            for i, (o, f, t) in enumerate(results):
+                set_leg(robot, LEG_CONFIGS[i], o, f, t)
+
+        elif state == "REBOLAR":
+            results = compute_rebolar(k, xyz_ini)
+            for i, (o, f, t) in enumerate(results):
+                set_leg(robot, LEG_CONFIGS[i], o, f, t)
+            k = (k + 1) % TOTAL_PONTOS_CIRCULAR
 
         elif state == "IDLE":
             for i, cfg in enumerate(LEG_CONFIGS):
