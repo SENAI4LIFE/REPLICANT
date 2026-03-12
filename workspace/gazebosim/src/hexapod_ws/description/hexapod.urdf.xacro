@@ -1,0 +1,508 @@
+<?xml version="1.0"?>
+<robot name="tiffany" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ═══════════════════════════════════════════════════
+       PROPERTIES
+  ═══════════════════════════════════════════════════ -->
+  <xacro:property name="pkg"          value="tiffany_sim"/>
+  <xacro:property name="effort"       value="10"/>
+  <xacro:property name="velocity"     value="10"/>
+  <xacro:property name="joint_lower"  value="-3.14159"/>
+  <xacro:property name="joint_upper"  value="3.14159"/>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       GAZEBO ros2_control PLUGIN
+  ═══════════════════════════════════════════════════ -->
+  <ros2_control name="tiffany_ros2_control" type="system">
+    <hardware>
+      <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+    </hardware>
+
+    <!-- Leg 1 -->
+    <joint name="coxa1">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="femur1">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="tibia1">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+
+    <!-- Leg 2 -->
+    <joint name="coxa2">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="femur2">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="tibia2">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+
+    <!-- Leg 3 -->
+    <joint name="coxa3">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="femur3">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="tibia3">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+
+    <!-- Leg 4 -->
+    <joint name="coxa4">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="femur4">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="tibia4">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+
+    <!-- Leg 5 -->
+    <joint name="coxa5">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="femur5">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="tibia5">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+
+    <!-- Leg 6 -->
+    <joint name="coxa6">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="femur6">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="tibia6">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+
+  </ros2_control>
+
+  <!-- Gazebo ros2_control plugin loader -->
+  <gazebo>
+    <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <parameters>$(find tiffany_sim)/config/parameters.yaml</parameters>
+      <ros>
+        <remapping>~/robot_description:=robot_description</remapping>
+      </ros>
+    </plugin>
+  </gazebo>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       BASE LINK  (core — body + lidar mount + camera mount + battery)
+  ═══════════════════════════════════════════════════ -->
+  <link name="core">
+    <inertial>
+      <origin xyz="-0.00158727 0.000307973 0.0818293" rpy="0 0 0"/>
+      <mass value="0.816237"/>
+      <inertia ixx="0.00293857" ixy="5.79441e-06"  ixz="0.000191891"
+               iyy="0.00475006" iyz="-8.13345e-06" izz="0.00349155"/>
+    </inertial>
+
+    <!-- lidar cylinder -->
+    <visual>
+      <origin xyz="-0.00916237 0.000669937 -0.048" rpy="0 0 0"/>
+      <geometry><mesh filename="package://${pkg}/description/meshes/lidar.stl"/></geometry>
+      <material name="teal"><color rgba="0.537255 0.854902 0.827451 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="-0.00916237 0.000669937 -0.048" rpy="0 0 0"/>
+      <geometry><mesh filename="package://${pkg}/description/meshes/lidar.stl"/></geometry>
+    </collision>
+
+    <!-- camera -->
+    <visual>
+      <origin xyz="-0.00914147 -0.000517389 -0.00299446" rpy="-0.00418892 0 0.00038394"/>
+      <geometry><mesh filename="package://${pkg}/description/meshes/camera.stl"/></geometry>
+      <material name="dark"><color rgba="0.262745 0.282353 0.301961 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="-0.00914147 -0.000517389 -0.00299446" rpy="-0.00418892 0 0.00038394"/>
+      <geometry><mesh filename="package://${pkg}/description/meshes/camera.stl"/></geometry>
+    </collision>
+
+    <!-- corpo_center (body shell — no collision per design) -->
+    <visual>
+      <origin xyz="-0.00143743 0.000199567 -0.026" rpy="0 0 0"/>
+      <geometry><mesh filename="package://${pkg}/description/meshes/corpo_center.stl"/></geometry>
+      <material name="teal"/>
+    </visual>
+
+    <!-- suportecamera -->
+    <visual>
+      <origin xyz="-0.00914751 -7.64622e-05 -0.00305943" rpy="0 0 0"/>
+      <geometry><mesh filename="package://${pkg}/description/meshes/suportecamera.stl"/></geometry>
+      <material name="teal"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.00914751 -7.64622e-05 -0.00305943" rpy="0 0 0"/>
+      <geometry><mesh filename="package://${pkg}/description/meshes/suportecamera.stl"/></geometry>
+    </collision>
+
+    <!-- suportelidar -->
+    <visual>
+      <origin xyz="-0.00916237 0.000669937 -0.028" rpy="0 0 0"/>
+      <geometry><mesh filename="package://${pkg}/description/meshes/suportelidar.stl"/></geometry>
+      <material name="dark"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.00916237 0.000669937 -0.028" rpy="0 0 0"/>
+      <geometry><mesh filename="package://${pkg}/description/meshes/suportelidar.stl"/></geometry>
+    </collision>
+
+    <!-- bateria -->
+    <visual>
+      <origin xyz="0.173258 0.000648486 0.007" rpy="0 0 0"/>
+      <geometry><mesh filename="package://${pkg}/description/meshes/bateria.stl"/></geometry>
+      <material name="dark"/>
+    </visual>
+    <collision>
+      <origin xyz="0.173258 0.000648486 0.007" rpy="0 0 0"/>
+      <geometry><mesh filename="package://${pkg}/description/meshes/bateria.stl"/></geometry>
+    </collision>
+  </link>
+
+  <!-- Gazebo friction for body -->
+  <gazebo reference="core">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       LIDAR SENSOR  (gpu_lidar — 2D flat scan, 360°)
+       Frame is the lidar cylinder visual on core
+  ═══════════════════════════════════════════════════ -->
+  <gazebo reference="core">
+    <sensor name="lidar" type="gpu_lidar">
+      <update_rate>10</update_rate>
+      <topic>/scan</topic>
+      <gz_frame_id>lidar_frame</gz_frame_id>
+      <lidar>
+        <scan>
+          <horizontal>
+            <samples>360</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159</min_angle>
+            <max_angle>3.14159</max_angle>
+          </horizontal>
+          <vertical>
+            <samples>1</samples>
+            <min_angle>0</min_angle>
+            <max_angle>0</max_angle>
+          </vertical>
+        </scan>
+        <range>
+          <min>0.12</min>
+          <max>10.0</max>
+          <resolution>0.01</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </lidar>
+      <always_on>true</always_on>
+      <visualize>false</visualize>
+    </sensor>
+  </gazebo>
+
+  <!-- ROS bridge for lidar (gz_ros2_bridge handles /scan via bridge.yaml) -->
+  <!-- Add to bridge.yaml:
+       - ros_topic_name: /scan
+         gz_topic_name: /scan
+         ros_type_name: sensor_msgs/msg/LaserScan
+         gz_type_name: gz.msgs.LaserScan
+         direction: GZ_TO_ROS
+  -->
+
+
+  <!-- ═══════════════════════════════════════════════════
+       CAMERA SENSOR
+  ═══════════════════════════════════════════════════ -->
+  <gazebo reference="core">
+    <sensor name="camera" type="camera">
+      <update_rate>30</update_rate>
+      <topic>/camera/image_raw</topic>
+      <gz_frame_id>camera_frame</gz_frame_id>
+      <camera>
+        <horizontal_fov>1.3962634</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>0.02</near>
+          <far>50</far>
+        </clip>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.007</stddev>
+        </noise>
+      </camera>
+      <always_on>true</always_on>
+      <visualize>false</visualize>
+    </sensor>
+  </gazebo>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       LEG MACRO  (coxa → femur → tibia)
+       Parameters:
+         num        : leg number 1-6
+         parent     : always "core"
+         cx/cy/cz   : coxa joint origin xyz
+         c_rpy      : coxa joint origin rpy
+         left       : true = left meshes, false = right meshes
+         femur_rpy  : femur joint rpy (differs left/right)
+  ═══════════════════════════════════════════════════ -->
+  <xacro:macro name="leg" params="num parent cx cy cz c_rpy left femur_rpy">
+
+    <!-- coxa link -->
+    <link name="coxa_${num}">
+      <inertial>
+        <xacro:if value="${left}">
+          <origin xyz="-0.00925616 0.0105337 -0.0414798" rpy="0 0 0"/>
+          <inertia ixx="5.39674e-05" ixy="2.7171e-08"   ixz="1.52845e-06"
+                   iyy="4.85407e-05" iyz="2.07568e-07"  izz="4.06893e-05"/>
+        </xacro:if>
+        <xacro:unless value="${left}">
+          <origin xyz="0.00925616 0.0105337 -0.0414798" rpy="0 0 0"/>
+          <inertia ixx="5.39674e-05" ixy="-2.7171e-08"  ixz="-1.52845e-06"
+                   iyy="4.85407e-05" iyz="2.07568e-07"  izz="4.06893e-05"/>
+        </xacro:unless>
+        <mass value="0.114719"/>
+      </inertial>
+      <xacro:if value="${left}">
+        <visual>
+          <origin xyz="0.0958607 -0.104994 -0.1085" rpy="0 0 0"/>
+          <geometry><mesh filename="package://${pkg}/description/meshes/coxa_left.stl"/></geometry>
+          <material name="dark"/>
+        </visual>
+        <collision>
+          <origin xyz="0.0958607 -0.104994 -0.1085" rpy="0 0 0"/>
+          <geometry><mesh filename="package://${pkg}/description/meshes/coxa_left.stl"/></geometry>
+        </collision>
+      </xacro:if>
+      <xacro:unless value="${left}">
+        <visual>
+          <origin xyz="-0.0958607 -0.104994 -0.1085" rpy="0 0 3.14159"/>
+          <geometry><mesh filename="package://${pkg}/description/meshes/coxa_right.stl"/></geometry>
+          <material name="dark"/>
+        </visual>
+        <collision>
+          <origin xyz="-0.0958607 -0.104994 -0.1085" rpy="0 0 3.14159"/>
+          <geometry><mesh filename="package://${pkg}/description/meshes/coxa_right.stl"/></geometry>
+        </collision>
+      </xacro:unless>
+    </link>
+
+    <joint name="coxa${num}" type="revolute">
+      <origin xyz="${cx} ${cy} ${cz}" rpy="${c_rpy}"/>
+      <parent link="${parent}"/>
+      <child  link="coxa_${num}"/>
+      <axis xyz="0 0 1"/>
+      <limit effort="${effort}" velocity="${velocity}" lower="${joint_lower}" upper="${joint_upper}"/>
+    </joint>
+
+    <gazebo reference="coxa_${num}">
+      <mu1>0.6</mu1><mu2>0.6</mu2>
+    </gazebo>
+
+    <!-- femur link -->
+    <link name="femur_${num}">
+      <inertial>
+        <xacro:if value="${left}">
+          <origin xyz="-0.00643845 0.0446229 0.0220001" rpy="0 0 0"/>
+          <inertia ixx="6.83684e-05" ixy="-9.8624e-08" ixz="-3.156e-09"
+                   iyy="2.98626e-05" iyz="3.769e-09"   izz="4.36701e-05"/>
+        </xacro:if>
+        <xacro:unless value="${left}">
+          <origin xyz="-0.00643859 0.0446229 -0.0220012" rpy="0 0 0"/>
+          <inertia ixx="6.83682e-05" ixy="-9.8789e-08" ixz="3.106e-09"
+                   iyy="2.98625e-05" iyz="-4.509e-09"  izz="4.36704e-05"/>
+        </xacro:unless>
+        <mass value="0.0406019"/>
+      </inertial>
+      <xacro:if value="${left}">
+        <visual>
+          <origin xyz="-0.0563378 -0.180581 -0.0838551" rpy="1.57104 1.57069 1.5708"/>
+          <geometry><mesh filename="package://${pkg}/description/meshes/femur_left.stl"/></geometry>
+          <material name="teal"/>
+        </visual>
+        <collision>
+          <origin xyz="-0.0563378 -0.180581 -0.0838551" rpy="1.57104 1.57069 1.5708"/>
+          <geometry><mesh filename="package://${pkg}/description/meshes/femur_left.stl"/></geometry>
+        </collision>
+      </xacro:if>
+      <xacro:unless value="${left}">
+        <visual>
+          <origin xyz="-0.0563378 -0.180581 0.0838551" rpy="1.57055 -1.57069 1.5708"/>
+          <geometry><mesh filename="package://${pkg}/description/meshes/femur_right.stl"/></geometry>
+          <material name="teal"/>
+        </visual>
+        <collision>
+          <origin xyz="-0.0563378 -0.180581 0.0838551" rpy="1.57055 -1.57069 1.5708"/>
+          <geometry><mesh filename="package://${pkg}/description/meshes/femur_right.stl"/></geometry>
+        </collision>
+      </xacro:unless>
+    </link>
+
+    <xacro:if value="${left}">
+      <joint name="femur${num}" type="revolute">
+        <origin xyz="0.0120255 0.0256037 -0.0522" rpy="${femur_rpy}"/>
+        <parent link="coxa_${num}"/>
+        <child  link="femur_${num}"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="${effort}" velocity="${velocity}" lower="${joint_lower}" upper="${joint_upper}"/>
+      </joint>
+    </xacro:if>
+    <xacro:unless value="${left}">
+      <joint name="femur${num}" type="revolute">
+        <origin xyz="-0.0120255 0.0256037 -0.0522" rpy="${femur_rpy}"/>
+        <parent link="coxa_${num}"/>
+        <child  link="femur_${num}"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="${effort}" velocity="${velocity}" lower="${joint_lower}" upper="${joint_upper}"/>
+      </joint>
+    </xacro:unless>
+
+    <gazebo reference="femur_${num}">
+      <mu1>0.6</mu1><mu2>0.6</mu2>
+    </gazebo>
+
+    <!-- tibia link -->
+    <link name="tibia_${num}">
+      <inertial>
+        <xacro:if value="${left}">
+          <origin xyz="0.00462765 0.0291382 0.0219975" rpy="0 0 0"/>
+          <inertia ixx="0.00011091"  ixy="-8.06656e-06" ixz="1.813e-09"
+                   iyy="1.63167e-05" iyz="7.373e-09"    izz="0.00011223"/>
+        </xacro:if>
+        <xacro:unless value="${left}">
+          <origin xyz="0.00462869 0.0291366 -0.0219976" rpy="0 0 0"/>
+          <inertia ixx="0.000110896" ixy="-8.06647e-06" ixz="-2.004e-09"
+                   iyy="1.63119e-05" iyz="-8.214e-09"   izz="0.000112212"/>
+        </xacro:unless>
+        <mass value="0.0995945"/>
+      </inertial>
+      <xacro:if value="${left}">
+        <visual>
+          <origin xyz="-0.0713466 -0.317596 -0.0837714" rpy="-1.52343 1.57063 -1.5708"/>
+          <geometry><mesh filename="package://${pkg}/description/meshes/tibia_left.stl"/></geometry>
+          <material name="dark"/>
+        </visual>
+        <collision>
+          <origin xyz="-0.0713466 -0.317596 -0.0837714" rpy="-1.52343 1.57063 -1.5708"/>
+          <geometry><mesh filename="package://${pkg}/description/meshes/tibia_left.stl"/></geometry>
+        </collision>
+      </xacro:if>
+      <xacro:unless value="${left}">
+        <visual>
+          <origin xyz="-0.0713466 -0.317596 0.0837714" rpy="-1.61816 -1.57063 -1.5708"/>
+          <geometry><mesh filename="package://${pkg}/description/meshes/tibia_right.stl"/></geometry>
+          <material name="dark"/>
+        </visual>
+        <collision>
+          <origin xyz="-0.0713466 -0.317596 0.0837714" rpy="-1.61816 -1.57063 -1.5708"/>
+          <geometry><mesh filename="package://${pkg}/description/meshes/tibia_right.stl"/></geometry>
+        </collision>
+      </xacro:unless>
+    </link>
+
+    <joint name="tibia${num}" type="revolute">
+      <origin xyz="-4.22005e-05 0.09 0" rpy="0 0 0"/>
+      <parent link="femur_${num}"/>
+      <child  link="tibia_${num}"/>
+      <axis xyz="0 0 1"/>
+      <limit effort="${effort}" velocity="${velocity}" lower="${joint_lower}" upper="${joint_upper}"/>
+    </joint>
+
+    <gazebo reference="tibia_${num}">
+      <mu1>0.8</mu1><mu2>0.8</mu2>
+    </gazebo>
+
+  </xacro:macro>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       INSTANTIATE 6 LEGS
+       Coxa origins and RPY taken directly from robot.urdf
+  ═══════════════════════════════════════════════════ -->
+
+  <!-- Left legs (1-3) -->
+  <xacro:leg num="1" parent="core"
+    cx="0.090389"   cy="0.0557355"  cz="0.0825" c_rpy="0 0 0"
+    left="true"  femur_rpy="-0.000110389 -1.5708 0"/>
+
+  <xacro:leg num="2" parent="core"
+    cx="-0.00260145" cy="0.065288"  cz="0.0825" c_rpy="0 0 0"
+    left="true"  femur_rpy="-0.000110389 -1.5708 0"/>
+
+  <xacro:leg num="3" parent="core"
+    cx="-0.0975281"  cy="0.0553256" cz="0.0825" c_rpy="0 0 0"
+    left="true"  femur_rpy="-0.000110389 -1.5708 0"/>
+
+  <!-- Right legs (4-6) -->
+  <xacro:leg num="4" parent="core"
+    cx="0.090332"    cy="-0.055261"  cz="0.0825" c_rpy="0 0 3.14159"
+    left="false" femur_rpy="0.000110389 -1.5708 0"/>
+
+  <xacro:leg num="5" parent="core"
+    cx="-0.00265937" cy="-0.064712"  cz="0.0825" c_rpy="0 0 3.14159"
+    left="false" femur_rpy="0.000110389 -1.5708 0"/>
+
+  <xacro:leg num="6" parent="core"
+    cx="-0.0975677"  cy="-0.0546697" cz="0.0825" c_rpy="0 0 3.14159"
+    left="false" femur_rpy="0.000110389 -1.5708 0"/>
+
+</robot>
