@@ -161,7 +161,6 @@ Wait ~15 seconds for all controllers to load.
 
 ### Terminal 2 — Teleop
 ```bash
-colcon build --symlink-install
 source install/setup.bash
 ros2 run hexapod_ws teleop_hexapod.py
 ```
