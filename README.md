@@ -131,6 +131,11 @@ Install Python build dependencies inside the venv:
 pip install catkin_pkg lark empy jinja2 pyyaml typeguard
 ```
 
+Make scripts executable:
+```bash
+chmod +x src/hexapod_ws/scripts/*.py
+```
+
 ## Environment Variables
 Add the following to your `~/.bashrc`:
 ```bash
