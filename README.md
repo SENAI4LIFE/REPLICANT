@@ -82,11 +82,13 @@ ros2 run hexapod_ws teleop_hexapod.py
 ## Sensor Visualization
 ### Camera Feed
 ```bash
+source /opt/ros/jazzy/setup.bash
 ros2 run rqt_image_view rqt_image_view
 ```
 Select `/camera/image_raw` from the dropdown.
 ### Lidar in RViz
 ```bash
+source /opt/ros/jazzy/setup.bash
 ros2 run rviz2 rviz2 --ros-args -p use_sim_time:=true
 ```
 In RViz:
