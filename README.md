@@ -15,7 +15,19 @@ Hardware repo: https://github.com/Penguin-Lab/tiffany
 
 ## Setup
 
-**1. Install Dependencies**
+**1. Clone**
+
+```bash
+git clone https://github.com/SENAI4LIFE/tiffany_gazebo.git
+```
+
+**2. Navigate to workspace**
+
+```bash
+cd ~/tiffany_gazebo
+```
+
+**3. Install Dependencies**
 
 ```bash
 sudo apt install -y \
@@ -33,7 +45,7 @@ sudo apt install -y \
   python3-jinja2 python3-yaml python3-typeguard
 ```
 
-**2. Environment Setup**
+**4. Environment Setup**
 
 Add to `~/.bashrc` and reload:
 
@@ -46,18 +58,6 @@ export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libpthread.so.0
 
 ```bash
 source ~/.bashrc
-```
-
-**3. Clone**
-
-```bash
-git clone https://github.com/SENAI4LIFE/tiffany_gazebo.git
-```
-
-**4. Navigate to workspace**
-
-```bash
-cd ~/tiffany_gazebo
 ```
 
 **5. Build**
