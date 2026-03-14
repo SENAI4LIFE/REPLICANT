@@ -20,7 +20,6 @@ install(
   PROGRAMS
     scripts/hexapod_runner.py
     scripts/teleop_hexapod.py
-    scripts/contact_dummy.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
