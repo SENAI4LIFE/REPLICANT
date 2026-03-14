@@ -30,9 +30,9 @@ class TeleopHexapod(Node):
         self.current_az = 0.0
 
         self.get_logger().info('Teleop active.')
-        self.get_logger().info('E=Boot  R=Shutdown  WASD=move  QZ=strafe')
-        self.get_logger().info('B=Rebolar  N=Balance  G/P=Patinha')
-        self.get_logger().info('C=TurnMode  X=OmniMode  F+Arrows=Pose  SPACE=Stop')
+        self.get_logger().info('E=Boot  Q=Shutdown  WASD=move')
+        self.get_logger().info('R=Rebolar  B=Balance  P=Patinha')
+        self.get_logger().info('C=TurnMode  X=OmniMode  Z=PoseMode  SPACE=Stop')
 
     def _get_key(self, settings):
         tty.setraw(sys.stdin.fileno())
@@ -81,7 +81,7 @@ class TeleopHexapod(Node):
                     self.get_logger().info('Booting...')
                     self._pub_state('BOOT')
 
-                elif key == 'r':
+                elif key == 'q':
                     self.get_logger().info('Shutting down...')
                     self._pub_state('SHUTDOWN')
 
@@ -93,33 +93,53 @@ class TeleopHexapod(Node):
                     self._pub_state('NAV_OMNI')
                     self.get_logger().info('Nav mode: OMNI')
 
-                elif key == 'b':
+                elif key == 'r':
                     self.get_logger().info('Rebolar')
                     self._pub_state('REBOLAR')
 
-                elif key == 'n':
+                elif key == 'b':
                     self.get_logger().info('Balance')
                     self._pub_state('BALANCE')
 
-                elif key in ('g', 'p'):
+                elif key == 'p':
                     self.get_logger().info('Patinha')
                     self._pub_state('PATINHA')
 
+                elif key == 'z':
+                    self.pose_mode = not self.pose_mode
+                    if not self.pose_mode:
+                        self.pose_roll  = 0.0
+                        self.pose_pitch = 0.0
+                        self._pub_state('IDLE')
+                    self.get_logger().info(f'Pose mode: {"ON" if self.pose_mode else "OFF"}')
+
                 elif key == '\x1b[A':
-                    self.pose_pitch = max(-POSE_MAX, self.pose_pitch - POSE_STEP)
-                    self._pub_state(f'POSE {self.pose_roll:.1f} {self.pose_pitch:.1f}')
+                    if self.pose_mode:
+                        self.pose_pitch = max(-POSE_MAX, self.pose_pitch - POSE_STEP)
+                        self._pub_state(f'POSE {self.pose_roll:.1f} {self.pose_pitch:.1f}')
+                    else:
+                        self._pub_vel(lx= self.linear_speed)
 
                 elif key == '\x1b[B':
-                    self.pose_pitch = min( POSE_MAX, self.pose_pitch + POSE_STEP)
-                    self._pub_state(f'POSE {self.pose_roll:.1f} {self.pose_pitch:.1f}')
+                    if self.pose_mode:
+                        self.pose_pitch = min( POSE_MAX, self.pose_pitch + POSE_STEP)
+                        self._pub_state(f'POSE {self.pose_roll:.1f} {self.pose_pitch:.1f}')
+                    else:
+                        self._pub_vel(lx=-self.linear_speed)
 
                 elif key == '\x1b[D':
-                    self.pose_roll = max(-POSE_MAX, self.pose_roll - POSE_STEP)
-                    self._pub_state(f'POSE {self.pose_roll:.1f} {self.pose_pitch:.1f}')
+                    if self.pose_mode:
+                        self.pose_roll = max(-POSE_MAX, self.pose_roll - POSE_STEP)
+                        self._pub_state(f'POSE {self.pose_roll:.1f} {self.pose_pitch:.1f}')
+                    else:
+                        self._pub_vel(az= self.angular_speed)
 
                 elif key == '\x1b[C':
-                    self.pose_roll = min( POSE_MAX, self.pose_roll + POSE_STEP)
-                    self._pub_state(f'POSE {self.pose_roll:.1f} {self.pose_pitch:.1f}')
+                    if self.pose_mode:
+                        self.pose_roll = min( POSE_MAX, self.pose_roll + POSE_STEP)
+                        self._pub_state(f'POSE {self.pose_roll:.1f} {self.pose_pitch:.1f}')
+                    else:
+                        self._pub_vel(az=-self.angular_speed)
 
                 elif key == 'w':
                     self._pub_vel(lx= self.linear_speed)
@@ -132,12 +152,6 @@ class TeleopHexapod(Node):
 
                 elif key == 'd':
                     self._pub_vel(az=-self.angular_speed)
-
-                elif key == 'q':
-                    self._pub_vel(ly= self.linear_speed)
-
-                elif key == 'z':
-                    self._pub_vel(ly=-self.linear_speed)
 
                 elif key in (' ', '\x1b'):
                     self.pose_roll  = 0.0
