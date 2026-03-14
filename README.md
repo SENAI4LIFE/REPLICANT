@@ -79,7 +79,7 @@ Controllers load automatically via timed actions (~15 s). Wait for the `hexapod_
 ### Terminal 2 — Teleop
 
 ```bash
-source ~/tiffany_gazebo/setup.bash
+source setup.bash
 ros2 run hexapod_ws teleop_hexapod.py
 ```
 
