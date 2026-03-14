@@ -135,9 +135,10 @@ def bezier_pata(xyz_ini, k, dx, dy, dz, total):
     kn   = k % total
     dx1, dx2 = dx / 4.0, dx / 2.0
     dy1, dy2 = dy / 4.0, dy / 2.0
+    dz1, dz2 = dz / 4.0, dz / 2.0
     Px = [xyz_ini[0], xyz_ini[0]+dx1, xyz_ini[0]+dx2, xyz_ini[0]+dx]
     Py = [xyz_ini[1], xyz_ini[1]+dy1, xyz_ini[1]+dy2, xyz_ini[1]+dy]
-    Pz = [xyz_ini[2], xyz_ini[2]+dx/4.0+0.006, xyz_ini[2]+dx/2.0+0.010, xyz_ini[2]+dz]
+    Pz = [xyz_ini[2], xyz_ini[2]+dz1+0.006, xyz_ini[2]+dz2+0.010, xyz_ini[2]+dz]
     if kn < meta:
         t = float(kn) / (meta - 1)
         u = 1.0 - t
@@ -410,6 +411,10 @@ class HexapodRunner(Node):
 
         elif cmd in ('IDLE', 'BALANCE', 'REBOLAR', 'PATINHA') and self.state != 'POWERED_OFF':
             if cmd == 'PATINHA':
+                if self.state == 'PATINHA':
+                    self.state = 'IDLE'
+                    self.get_logger().info('State → IDLE')
+                    return
                 self.patinha_k = 0
             self.state = cmd
             self.get_logger().info(f'State → {cmd}')
@@ -488,8 +493,6 @@ class HexapodRunner(Node):
             self._publish_joints(results)
             if self.patinha_k < PATINHA_META - 1:
                 self.patinha_k += 1
-            else:
-                self.state = 'IDLE'
 
         elif state == 'REBOLAR':
             results = compute_rebolar(self.k, self.xyz_ini)
