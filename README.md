@@ -88,14 +88,14 @@ ros2 run hexapod_ws teleop_hexapod.py
 | Key | Action |
 |-----|--------|
 | `E` | Boot robot |
-| `R` | Shutdown robot |
+| `Q` | Shutdown robot |
 | `W` / `S` | Walk forward / backward |
 | `A` / `D` | Rotate left / right |
-| `Q` / `Z` | Strafe left / right |
-| `B` | Rebolar |
-| `N` | Balance mode |
-| `G` / `P` | Patinha |
-| Arrow keys | Body pose (roll / pitch) |
+| `↑ ↓ ← →` | Walk / rotate (same as WASD, when not in pose mode) |
+| `Z` | Toggle pose mode (arrows then tilt body roll / pitch) |
+| `R` | Rebolar |
+| `B` | Balance mode |
+| `P` | Patinha (toggle) |
 | `C` | Turn navigation mode |
 | `X` | Omni navigation mode |
 | `SPACE` | Stop |
