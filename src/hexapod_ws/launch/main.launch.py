@@ -52,6 +52,18 @@ def generate_launch_description():
         output='screen'
     )
 
+    unload_jsb = ExecuteProcess(
+        cmd=['ros2', 'control', 'unload_controller', 'joint_state_broadcaster',
+             '--controller-manager-timeout', '5'],
+        output='screen'
+    )
+
+    unload_hex = ExecuteProcess(
+        cmd=['ros2', 'control', 'unload_controller', 'hexapod_controller',
+             '--controller-manager-timeout', '5'],
+        output='screen'
+    )
+
     jsb_spawner = Node(
         package='controller_manager',
         executable='spawner',
@@ -99,10 +111,11 @@ def generate_launch_description():
         gazebo,
         spawn_robot,
         bridge,
+        TimerAction(period=8.0,  actions=[unload_jsb, unload_hex]),
         TimerAction(period=12.0, actions=[jsb_spawner]),
         TimerAction(period=17.0, actions=[tiffany_ctrl_spawner]),
         TimerAction(period=22.0, actions=[tiffany_brain]),
-        TimerAction(period=35.0, actions=[slam]),
-        TimerAction(period=37.0, actions=[slam_configure]),
-        TimerAction(period=40.0, actions=[slam_activate]),
+        TimerAction(period=38.0, actions=[slam]),
+        TimerAction(period=45.0, actions=[slam_configure]),
+        TimerAction(period=50.0, actions=[slam_activate]),
     ])
