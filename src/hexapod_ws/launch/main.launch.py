@@ -103,7 +103,7 @@ def generate_launch_description():
         TimerAction(period=17.0, actions=[tiffany_ctrl_spawner]),
         TimerAction(period=22.0, actions=[tiffany_brain]),
         TimerAction(period=38.0, actions=[slam]),
-        TimerAction(period=45.0, actions=[slam_configure]),
-        TimerAction(period=50.0, actions=[slam_activate]),
+        TimerAction(period=60.0, actions=[slam_configure]),
+        TimerAction(period=68.0, actions=[slam_activate]),
     ])
 
