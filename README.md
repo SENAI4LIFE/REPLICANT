@@ -114,7 +114,7 @@ RGBD, 640x480 @ 15Hz, bridged on `/camera/image`, `/camera/depth_image`, `/camer
 | `C` / `X` | Turn / Omni nav mode |
 | `SPACE` | Stop |
 
-**Joystick** (`joystick_hexapod.py`): drag to move, release to stop. Buttons for Boot, Shutdown, Nav mode, Pose mode, Stop.
+**Joystick** (`joystick_hexapod.py`): drag to move, release to stop. Buttons for Boot, Shutdown, Nav mode, Pose mode, Safe Mode, Stop. A status panel at the top shows Robot state, locomotion mode, control source (Manual/Nav2), Safe Mode, and Nav2 status. While the joystick is actively driving, autonomous locomotion mode changes (from Nav2 or obstacle-recovery behaviors) are held off — the selected mode stays in effect until you release the stick. Safe Mode is off by default; when enabled it uses the LiDAR to limit or block forward movement toward nearby obstacles, without switching locomotion mode or taking control away from you.
 
 **Nav2 picker** (`nav_goal_gui.py`): Boot, then click/drag on the map to send a goal + heading. Cancel Goal aborts.
 

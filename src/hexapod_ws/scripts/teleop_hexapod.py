@@ -111,7 +111,7 @@ class TeleopHexapod(Node):
                     self.pose_roll  = 0.0
                     self.pose_pitch = 0.0
                     self._stop_motion()
-                    self._pub_state('NAV_TURN')
+                    self._pub_state('NAV_TURN_1')
                     self.get_logger().info('Nav mode: TURN')
 
                 elif key == 'x':

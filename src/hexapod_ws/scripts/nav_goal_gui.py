@@ -313,6 +313,7 @@ class NavGoalNode(Node):
 
         self.state_pub = self.create_publisher(String, '/tiffany/state', 10)
         self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.nav_status_pub = self.create_publisher(String, '/tiffany/nav2_status', 10)
         self.action_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self.backup_client = ActionClient(self, BackUp, 'backup')
 
@@ -341,6 +342,7 @@ class NavGoalNode(Node):
 
         self.last_hexapod_state = None
         self.last_nav_mode = 'TURN_1'
+        self.manual_active = False
         self._spin_near_goal_since = None
         self._final_strafe_active = False
         self._final_strafe_end_time = None
@@ -368,6 +370,10 @@ class NavGoalNode(Node):
             return
         self.last_hexapod_state = data.get('state')
         self.last_nav_mode = data.get('nav_mode', self.last_nav_mode)
+        manual_active = data.get('manual_active', self.manual_active)
+        if manual_active and not self.manual_active and self.nav_active:
+            self.cancel_goal()
+        self.manual_active = manual_active
         if self.on_hexapod_state:
             self.on_hexapod_state(data)
 
@@ -375,6 +381,13 @@ class NavGoalNode(Node):
         msg = String()
         msg.data = state
         self.state_pub.publish(msg)
+
+    def _emit_status(self, key, text):
+        if self.on_status:
+            self.on_status(key, text)
+        msg = String()
+        msg.data = key
+        self.nav_status_pub.publish(msg)
 
     def current_pose(self):
         try:
@@ -413,6 +426,9 @@ class NavGoalNode(Node):
             self._start_final_strafe()
 
     def _start_final_strafe(self):
+        if self.manual_active:
+            return
+
         self._goal_generation += 1
         if self._goal_handle is not None:
             self._goal_handle.cancel_goal_async()
@@ -424,13 +440,16 @@ class NavGoalNode(Node):
         self._final_strafe_active = True
         self._final_strafe_end_time = time.monotonic() + FINAL_APPROACH_MAX_TIME_S
 
-        if self.on_status:
-            self.on_status('sending', 'Close to goal, strafing in directly...')
+        self._emit_status('sending', 'Close to goal, strafing in directly...')
 
     def _final_strafe_tick(self):
         now = time.monotonic()
         pose = self.current_pose()
         target = self._last_goal_xy
+
+        if self.manual_active:
+            self._stop_final_strafe(succeeded=False)
+            return
 
         if pose is None or target is None or now >= self._final_strafe_end_time:
             self._stop_final_strafe(succeeded=False)
@@ -456,12 +475,12 @@ class NavGoalNode(Node):
     def _stop_final_strafe(self, succeeded):
         self._final_strafe_active = False
         self.cmd_vel_pub.publish(Twist())
-        self.send_state(f'NAV_{self._final_strafe_prev_nav_mode}')
-        if self.on_status:
-            if succeeded:
-                self.on_status('succeeded', 'Reached goal via final strafe')
-            else:
-                self.on_status('idle', 'Final strafe stopped')
+        if not self.manual_active:
+            self.send_state(f'NAV_{self._final_strafe_prev_nav_mode}')
+        if succeeded:
+            self._emit_status('succeeded', 'Reached goal via final strafe')
+        else:
+            self._emit_status('idle', 'Final strafe stopped')
         if self.on_result:
             self.on_result()
 
@@ -562,12 +581,10 @@ class NavGoalNode(Node):
         goal.pose = pose
 
         if not self.action_client.server_is_ready():
-            if self.on_status:
-                self.on_status('unavailable', 'Nav2 action server not available yet')
+            self._emit_status('unavailable', 'Nav2 action server not available yet')
             return
 
-        if self.on_status:
-            self.on_status('sending', f'Sending goal ({x:.2f}, {y:.2f})')
+        self._emit_status('sending', f'Sending goal ({x:.2f}, {y:.2f})')
 
         self.nav_active = True
         self.nav_start_time = time.monotonic()
@@ -582,10 +599,14 @@ class NavGoalNode(Node):
 
     def cancel_goal(self):
         self._goal_generation += 1
+        my_generation = self._goal_generation
         self._spin_near_goal_since = None
         self._final_strafe_active = False
-        if self._goal_handle is not None:
-            self._goal_handle.cancel_goal_async()
+        handle = self._goal_handle
+        if handle is not None:
+            cancel_future = handle.cancel_goal_async()
+            cancel_future.add_done_callback(
+                lambda _f: self._cancel_confirmed(my_generation))
         self._goal_handle = None
         self.nav_active = False
         self.nav_start_time = None
@@ -595,12 +616,16 @@ class NavGoalNode(Node):
         if self.on_distance:
             self.on_distance(None, None)
 
+    def _cancel_confirmed(self, generation):
+        if generation != self._goal_generation:
+            return
+        self.cmd_vel_pub.publish(Twist())
+
     def recover_and_go_safe(self):
         self._goal_generation += 1
         my_generation = self._goal_generation
 
-        if self.on_status:
-            self.on_status('sending', 'Backing away from obstacle...')
+        self._emit_status('sending', 'Backing away from obstacle...')
 
         if not self.backup_client.server_is_ready():
             self._after_backup(my_generation)
@@ -628,8 +653,7 @@ class NavGoalNode(Node):
     def _after_backup(self, generation):
         if generation != self._goal_generation:
             return
-        if self.on_status:
-            self.on_status('sending', 'Obstacle ahead, looking for a way around...')
+        self._emit_status('sending', 'Obstacle ahead, looking for a way around...')
         self._go_to_safe_point(generation)
 
     def _go_to_safe_point(self, generation):
@@ -637,31 +661,29 @@ class NavGoalNode(Node):
             return
         pose = self.current_pose()
         if pose is None:
-            if self.on_status:
-                self.on_status('idle', 'No robot pose available yet')
+            self._emit_status('idle', 'No robot pose available yet')
             return
         x, y, _ = pose
         safe = self.find_safe_point(x, y)
         if safe is None:
-            if self.on_status:
-                self.on_status('idle', 'No safe nearby spot found')
+            self._emit_status('idle', 'No safe nearby spot found')
             return
         if self.on_safe_retry:
             self.on_safe_retry(safe[0], safe[1])
         self.send_goal(safe[0], safe[1], self.last_goal_yaw)
 
     def _goal_response_cb(self, future, generation):
-        if generation != self._goal_generation:
-            return
         goal_handle = future.result()
+        if generation != self._goal_generation:
+            if goal_handle is not None and goal_handle.accepted:
+                goal_handle.cancel_goal_async()
+            return
         if goal_handle is None or not goal_handle.accepted:
             self.nav_active = False
-            if self.on_status:
-                self.on_status('rejected', 'Goal rejected')
+            self._emit_status('rejected', 'Goal rejected')
             return
         self._goal_handle = goal_handle
-        if self.on_status:
-            self.on_status('navigating', 'Goal accepted, navigating...')
+        self._emit_status('navigating', 'Goal accepted, navigating...')
         result_future = goal_handle.get_result_async()
         result_future.add_done_callback(
             lambda f: self._result_cb(f, generation))
@@ -674,8 +696,7 @@ class NavGoalNode(Node):
             elapsed = time.monotonic() - self.nav_start_time
         if self.on_distance:
             self.on_distance(remaining, elapsed)
-        if self.on_status:
-            self.on_status('navigating', f'Navigating... {remaining:.2f} m remaining')
+        self._emit_status('navigating', f'Navigating... {remaining:.2f} m remaining')
 
     def _result_cb(self, future, generation):
         if generation != self._goal_generation:
@@ -692,15 +713,13 @@ class NavGoalNode(Node):
 
         if key == 'aborted' and not self._auto_retry_used and self._last_goal_xy is not None:
             self._auto_retry_used = True
-            if self.on_status:
-                self.on_status(
-                    'sending',
-                    'Goal aborted near obstacle, backing off and retrying...')
+            self._emit_status(
+                'sending',
+                'Goal aborted near obstacle, backing off and retrying...')
             self.recover_and_go_safe()
             return
 
-        if self.on_status:
-            self.on_status(key, label)
+        self._emit_status(key, label)
         if self.on_result:
             self.on_result()
 

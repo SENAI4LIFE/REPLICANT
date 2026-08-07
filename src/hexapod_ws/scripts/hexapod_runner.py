@@ -513,6 +513,9 @@ class HexapodRunner(Node):
         self.zero_vel_since = None
         self.stop_requested = False
 
+        self.manual_active = False
+        self.safe_mode = False
+
         self.stall_last_check_time = None
         self.stall_last_xy = None
         self.stall_last_yaw = None
@@ -719,6 +722,19 @@ class HexapodRunner(Node):
     def _state_cb(self, msg: String):
         cmd = msg.data.upper().strip()
 
+        if cmd == 'MANUAL_ON':
+            self.manual_active = True
+            return
+        elif cmd == 'MANUAL_OFF':
+            self.manual_active = False
+            return
+        elif cmd == 'SAFE_ON':
+            self.safe_mode = True
+            return
+        elif cmd == 'SAFE_OFF':
+            self.safe_mode = False
+            return
+
         if cmd != 'BOOT' and not self.ready:
             return
 
@@ -778,9 +794,8 @@ class HexapodRunner(Node):
         if self.strafe_active:
             return
 
-        lx = msg.linear.x
-        ly = msg.linear.y
-        az = msg.angular.z
+        lx, ly, az = self._apply_safe_mode_limit(
+            msg.linear.x, msg.linear.y, msg.angular.z)
 
         if abs(lx) > 0.01 or abs(ly) > 0.01 or abs(az) > 0.01:
             self.cmd_vel_nav_active = True
@@ -853,6 +868,27 @@ class HexapodRunner(Node):
                 self.state = 'IDLE'
                 self.waiting_for_sync = False
                 self.pending_gait_state = None
+
+    def _apply_safe_mode_limit(self, lx, ly, az):
+        if not self.safe_mode:
+            return lx, ly, az
+
+        if math.hypot(lx, ly) <= 0.01:
+            return lx, ly, az
+
+        dist = self.forward_obstacle_dist_m if lx > 0.01 else self.min_obstacle_dist_m
+        if dist is None:
+            return lx, ly, az
+
+        if dist <= CLEARANCE_DANGER_M:
+            return 0.0, 0.0, az
+
+        if dist < CLEARANCE_WARN_M:
+            t = (dist - CLEARANCE_DANGER_M) / (CLEARANCE_WARN_M - CLEARANCE_DANGER_M)
+            lx *= t
+            ly *= t
+
+        return lx, ly, az
 
     def _advance_steps(self):
         self.k_accum += self.gait_speed
@@ -961,7 +997,8 @@ class HexapodRunner(Node):
             if now >= self.strafe_end_time:
                 self.strafe_active = False
                 self.state = self.strafe_resume_state or 'IDLE'
-                self.nav_mode = self.strafe_resume_nav_mode or self.nav_mode
+                if not self.manual_active:
+                    self.nav_mode = self.strafe_resume_nav_mode or self.nav_mode
                 self.stall_ticks = 0
                 self.stall_last_check_time = None
                 self.stall_last_xy = None
@@ -1045,7 +1082,8 @@ class HexapodRunner(Node):
         self.strafe_active = True
         self.strafe_end_time = now + STRAFE_DURATION_S
 
-        self.nav_mode = 'OMNI'
+        if not self.manual_active:
+            self.nav_mode = 'OMNI'
         self.gait_speed = GAIT_SPEED_MIN
         self.angle_joystick = 90.0 if self.strafe_direction > 0 else -90.0
         self.state = 'WALKING'
@@ -1139,7 +1177,8 @@ class HexapodRunner(Node):
             if self.stop_requested and self.k == 0:
                 self.stop_requested = False
                 self.state = 'IDLE'
-                self.nav_mode = 'TURN_1'
+                if not self.manual_active:
+                    self.nav_mode = 'TURN_1'
                 self.waiting_for_sync = False
                 self.pending_gait_state = None
                 self.pending_gait_angle = 0.0
@@ -1160,7 +1199,8 @@ class HexapodRunner(Node):
             if self.stop_requested and self.k == 0:
                 self.stop_requested = False
                 self.state = 'IDLE'
-                self.nav_mode = 'TURN_1'
+                if not self.manual_active:
+                    self.nav_mode = 'TURN_1'
                 self.waiting_for_sync = False
                 self.pending_gait_state = None
                 self.pending_gait_angle = 0.0
@@ -1241,6 +1281,8 @@ class HexapodRunner(Node):
             ),
             'clearance_throttling': self.clearance_throttling,
             'waiting_for_sync': self.waiting_for_sync,
+            'manual_active': self.manual_active,
+            'safe_mode': self.safe_mode,
         }
         msg = String()
         msg.data = json.dumps(payload)

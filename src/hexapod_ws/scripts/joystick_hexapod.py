@@ -25,6 +25,23 @@ from PyQt5.QtWidgets import (
 
 POSE_MAX = 15.0
 
+NAV_MODE_LABELS = {
+    'OMNI': 'Omni',
+    'TURN_1': 'Turn 1',
+    'TURN_2': 'Turn 2',
+}
+
+NAV2_STATUS_LABELS = {
+    'idle': 'Idle',
+    'sending': 'Navigating',
+    'navigating': 'Navigating',
+    'succeeded': 'Goal reached',
+    'canceled': 'Cancelled',
+    'rejected': 'Idle',
+    'aborted': 'Idle',
+    'unavailable': 'Idle',
+}
+
 
 class JoystickPad(QWidget):
 
@@ -34,6 +51,7 @@ class JoystickPad(QWidget):
         self._handle = QPointF(0.0, 0.0)
         self._dragging = False
         self.on_move = None
+        self.on_press = None
         self.on_release = None
 
     def paintEvent(self, event):
@@ -60,6 +78,8 @@ class JoystickPad(QWidget):
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self._dragging = True
+            if self.on_press:
+                self.on_press()
             self._update_handle(event.pos())
 
     def mouseMoveEvent(self, event):
@@ -100,8 +120,17 @@ class JoystickNode(Node):
         self.state_pub = self.create_publisher(String, '/tiffany/state', 10)
         self.feedback_sub = self.create_subscription(
             String, '/tiffany/state_feedback', self._feedback_cb, 10)
+        self.nav2_status_sub = self.create_subscription(
+            String, '/tiffany/nav2_status', self._nav2_status_cb, 10)
         self.nav_mode = 'OMNI'
         self.confirmed_nav_mode = None
+        self.robot_ready = False
+        self.nav2_status = None
+        self.on_feedback = None
+        self.on_nav2_status = None
+        self.current_lx = 0.0
+        self.current_ly = 0.0
+        self.current_az = 0.0
 
     def _feedback_cb(self, msg):
         try:
@@ -111,6 +140,14 @@ class JoystickNode(Node):
         mode = data.get('nav_mode')
         if mode in ('OMNI', 'TURN_1', 'TURN_2'):
             self.confirmed_nav_mode = mode
+        self.robot_ready = bool(data.get('ready', False))
+        if self.on_feedback:
+            self.on_feedback(data)
+
+    def _nav2_status_cb(self, msg):
+        self.nav2_status = msg.data
+        if self.on_nav2_status:
+            self.on_nav2_status(msg.data)
 
     def send_state(self, state):
         msg = String()
@@ -118,10 +155,20 @@ class JoystickNode(Node):
         self.state_pub.publish(msg)
 
     def send_velocity(self, lx=0.0, ly=0.0, az=0.0):
+        self.current_lx = lx
+        self.current_ly = ly
+        self.current_az = az
         msg = Twist()
         msg.linear.x = lx
         msg.linear.y = ly
         msg.angular.z = az
+        self.vel_pub.publish(msg)
+
+    def republish_velocity(self):
+        msg = Twist()
+        msg.linear.x = self.current_lx
+        msg.linear.y = self.current_ly
+        msg.angular.z = self.current_az
         self.vel_pub.publish(msg)
 
     def send_pose(self, roll, pitch):
@@ -132,6 +179,12 @@ class JoystickNode(Node):
         self.send_state(f'NAV_{mode}')
         return mode
 
+    def set_manual_active(self, active):
+        self.send_state('MANUAL_ON' if active else 'MANUAL_OFF')
+
+    def set_safe_mode(self, active):
+        self.send_state('SAFE_ON' if active else 'SAFE_OFF')
+
 
 class JoystickWindow(QMainWindow):
 
@@ -139,21 +192,40 @@ class JoystickWindow(QMainWindow):
         super().__init__()
         self.node = node
         self.pose_mode = False
+        self.manual_active = False
+        self.safe_mode = False
         self.setWindowTitle('Tiffany Virtual Joystick')
 
         central = QWidget()
         layout = QVBoxLayout(central)
 
+        status_row = QHBoxLayout()
+        self.status_labels = {}
+        for key, title in (
+            ('robot_state', 'Robot'),
+            ('nav_mode', 'Mode'),
+            ('control_source', 'Control'),
+            ('safe_mode', 'Safe Mode'),
+            ('nav2_status', 'Nav2'),
+        ):
+            label = QLabel(f'{title}: --')
+            self.status_labels[key] = label
+            status_row.addWidget(label)
+        layout.addLayout(status_row)
+
         top_row = QHBoxLayout()
         boot_btn = QPushButton('Boot')
         boot_btn.clicked.connect(self._on_boot)
         shutdown_btn = QPushButton('Shutdown')
-        shutdown_btn.clicked.connect(lambda: self.node.send_state('SHUTDOWN'))
+        shutdown_btn.clicked.connect(self._on_shutdown)
         self.pose_btn = QPushButton('Pose mode: OFF')
         self.pose_btn.clicked.connect(self._toggle_pose)
+        self.safe_btn = QPushButton('Safe Mode: OFF')
+        self.safe_btn.clicked.connect(self._toggle_safe_mode)
         top_row.addWidget(boot_btn)
         top_row.addWidget(shutdown_btn)
         top_row.addWidget(self.pose_btn)
+        top_row.addWidget(self.safe_btn)
         layout.addLayout(top_row)
 
         nav_row = QHBoxLayout()
@@ -185,6 +257,7 @@ class JoystickWindow(QMainWindow):
         layout.addLayout(speed_row)
 
         self.pad = JoystickPad()
+        self.pad.on_press = self._on_press
         self.pad.on_move = self._on_move
         self.pad.on_release = self._on_release
         layout.addWidget(self.pad, stretch=1)
@@ -194,24 +267,43 @@ class JoystickWindow(QMainWindow):
 
         anim_row = QHBoxLayout()
         rebolar_btn = QPushButton('Rebolar')
-        rebolar_btn.clicked.connect(lambda: self.node.send_state('REBOLAR'))
+        rebolar_btn.clicked.connect(self._on_rebolar)
         patinha_btn = QPushButton('Patinha')
-        patinha_btn.clicked.connect(lambda: self.node.send_state('PATINHA'))
+        patinha_btn.clicked.connect(self._on_patinha)
         anim_row.addWidget(rebolar_btn)
         anim_row.addWidget(patinha_btn)
         layout.addLayout(anim_row)
 
         self.setCentralWidget(central)
-        self.resize(360, 480)
+        self.resize(420, 520)
+
+        self.node.on_feedback = self._on_feedback
+        self.node.on_nav2_status = self._on_nav2_status
+        self._refresh_status()
 
     def _on_boot(self):
+        self.node.send_velocity(0.0, 0.0, 0.0)
         self.node.send_state('BOOT')
         self._set_nav_mode(self.node.nav_mode)
 
+    def _on_shutdown(self):
+        self.node.send_velocity(0.0, 0.0, 0.0)
+        self.node.send_state('SHUTDOWN')
+
+    def _on_rebolar(self):
+        self.node.send_velocity(0.0, 0.0, 0.0)
+        self.node.send_state('REBOLAR')
+
+    def _on_patinha(self):
+        self.node.send_velocity(0.0, 0.0, 0.0)
+        self.node.send_state('PATINHA')
+
     def _set_nav_mode(self, mode):
+        self.node.send_velocity(0.0, 0.0, 0.0)
         self.node.set_nav_mode(mode)
         for m, btn in self.nav_buttons.items():
             btn.setChecked(m == mode)
+        self._refresh_status()
 
     def _toggle_pose(self):
         self.pose_mode = not self.pose_mode
@@ -221,6 +313,37 @@ class JoystickWindow(QMainWindow):
         else:
             self.node.send_state('IDLE')
             self.pose_btn.setText('Pose mode: OFF')
+
+    def _toggle_safe_mode(self):
+        self.safe_mode = not self.safe_mode
+        self.node.set_safe_mode(self.safe_mode)
+        self.safe_btn.setText(f'Safe Mode: {"ON" if self.safe_mode else "OFF"}')
+        self._refresh_status()
+
+    def _on_press(self):
+        self.manual_active = True
+        self.node.set_manual_active(True)
+        self._refresh_status()
+
+    def _on_feedback(self, data):
+        self._refresh_status()
+
+    def _on_nav2_status(self, status):
+        self._refresh_status()
+
+    def _refresh_status(self):
+        robot_state = 'Booted' if self.node.robot_ready else 'Shutdown'
+        mode = self.node.confirmed_nav_mode or self.node.nav_mode
+        control_source = 'Manual' if self.manual_active else 'Nav2'
+        nav2_status = NAV2_STATUS_LABELS.get(self.node.nav2_status, 'Idle')
+
+        self.status_labels['robot_state'].setText(f'Robot: {robot_state}')
+        self.status_labels['nav_mode'].setText(
+            f'Mode: {NAV_MODE_LABELS.get(mode, mode)}')
+        self.status_labels['control_source'].setText(f'Control: {control_source}')
+        self.status_labels['safe_mode'].setText(
+            f'Safe Mode: {"ON" if self.safe_mode else "OFF"}')
+        self.status_labels['nav2_status'].setText(f'Nav2: {nav2_status}')
 
     def _on_move(self, linear, angular):
         if self.pose_mode:
@@ -251,10 +374,18 @@ class JoystickWindow(QMainWindow):
             self.values_label.setText(f'lx={lx:.2f}  az={az:.2f}')
 
     def _on_release(self):
+        self.manual_active = False
+        self.node.set_manual_active(False)
+        self._refresh_status()
         if self.pose_mode:
             return
         self.node.send_velocity(0.0, 0.0, 0.0)
         self.values_label.setText('lx=0.00  ly=0.00  az=0.00')
+
+    def tick(self):
+        rclpy.spin_once(self.node, timeout_sec=0.0)
+        if self.pad._dragging and not self.pose_mode:
+            self.node.republish_velocity()
 
 
 def main(args=None):
@@ -273,7 +404,7 @@ def main(args=None):
     signal.signal(signal.SIGINT, handle_sigint)
 
     timer = QTimer()
-    timer.timeout.connect(lambda: rclpy.spin_once(node, timeout_sec=0.0))
+    timer.timeout.connect(window.tick)
     timer.start(20)
 
     app.exec_()
