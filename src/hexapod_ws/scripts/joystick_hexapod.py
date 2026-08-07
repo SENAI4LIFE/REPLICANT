@@ -154,22 +154,21 @@ class JoystickNode(Node):
         msg.data = state
         self.state_pub.publish(msg)
 
-    def send_velocity(self, lx=0.0, ly=0.0, az=0.0):
+    def set_target_velocity(self, lx=0.0, ly=0.0, az=0.0):
         self.current_lx = lx
         self.current_ly = ly
         self.current_az = az
-        msg = Twist()
-        msg.linear.x = lx
-        msg.linear.y = ly
-        msg.angular.z = az
-        self.vel_pub.publish(msg)
 
-    def republish_velocity(self):
+    def publish_velocity(self):
         msg = Twist()
         msg.linear.x = self.current_lx
         msg.linear.y = self.current_ly
         msg.angular.z = self.current_az
         self.vel_pub.publish(msg)
+
+    def send_velocity(self, lx=0.0, ly=0.0, az=0.0):
+        self.set_target_velocity(lx, ly, az)
+        self.publish_velocity()
 
     def send_pose(self, roll, pitch):
         self.send_state(f'POSE {roll:.1f} {pitch:.1f}')
@@ -360,17 +359,25 @@ class JoystickWindow(QMainWindow):
         if mode == 'OMNI':
             lx = linear * scale
             ly = angular * scale
-            self.node.send_velocity(lx=lx, ly=ly)
+            if abs(lx) >= abs(ly):
+                ly = 0.0
+            else:
+                lx = 0.0
+            self.node.set_target_velocity(lx=lx, ly=ly)
             self.values_label.setText(f'lx={lx:.2f}  ly={ly:.2f}')
         elif mode == 'TURN_1':
             lx = linear * scale
             az = angular * angular_scale
-            self.node.send_velocity(lx=lx, az=az)
+            self.node.set_target_velocity(lx=lx, az=az)
             self.values_label.setText(f'lx={lx:.2f}  az={az:.2f}')
         else:
             lx = linear * scale
             az = angular * angular_scale
-            self.node.send_velocity(lx=lx, az=az)
+            if abs(lx) >= abs(az):
+                az = 0.0
+            else:
+                lx = 0.0
+            self.node.set_target_velocity(lx=lx, az=az)
             self.values_label.setText(f'lx={lx:.2f}  az={az:.2f}')
 
     def _on_release(self):
@@ -384,8 +391,8 @@ class JoystickWindow(QMainWindow):
 
     def tick(self):
         rclpy.spin_once(self.node, timeout_sec=0.0)
-        if self.pad._dragging and not self.pose_mode:
-            self.node.republish_velocity()
+        if not self.pose_mode:
+            self.node.publish_velocity()
 
 
 def main(args=None):

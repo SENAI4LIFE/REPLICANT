@@ -48,6 +48,8 @@ Virtual joystick:
 ```bash
 source setup.bash && ros2 run hexapod_ws joystick_hexapod.py
 ```
+Warning: Do not use the virtual joystick when Nav2 is enabled.
+
 Nav2 destination picker (only when Nav2 is enabled):
 ```bash
 source setup.bash && ros2 run hexapod_ws nav_goal_gui.py

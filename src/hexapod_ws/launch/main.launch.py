@@ -29,6 +29,7 @@ def generate_launch_description():
     slam_params = os.path.join(pkg_share, 'config', 'slam_params.yaml')
     nav2_params = os.path.join(pkg_share, 'config', 'nav2_params.yaml')
     rviz_config = os.path.join(pkg_share, 'rviz', 'hexapod.rviz')
+    gz_gui_config = os.path.join(pkg_share, 'config', 'gz_gui_top_down.config')
 
     rviz_arg = DeclareLaunchArgument(
         'rviz',
@@ -160,7 +161,7 @@ def generate_launch_description():
             'launch', 'gz_sim.launch.py',
         )]),
         launch_arguments={
-            'gz_args': ['-g -v4'],
+            'gz_args': ['-g -v4 --gui-config ', gz_gui_config],
             'on_exit_shutdown': 'false',
         }.items(),
     )

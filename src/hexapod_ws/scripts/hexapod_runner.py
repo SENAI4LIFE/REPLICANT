@@ -54,6 +54,9 @@ HEADING_SNAP_THRESHOLD_DEG = 100.0
 GAIT_SPEED_RAMP_UP_GAIN    = 0.45
 GAIT_SPEED_RAMP_DOWN_GAIN  = 0.22
 
+AUTO_ROTATION_DEADBAND_RAD_S   = 0.03
+AUTO_ROTATION_HYSTERESIS_RAD_S = 0.05
+
 STALL_CHECK_INTERVAL_S    = 1.5
 STALL_MIN_PROGRESS_M      = 0.03
 STALL_MIN_PROGRESS_RAD    = math.radians(4.0)
@@ -517,6 +520,7 @@ class HexapodRunner(Node):
 
         self.angle_joystick = 0.0
         self.angle_joystick_target = 0.0
+        self._auto_rotation_sign = 0.0
 
         self.gait_speed = 1.0
         self.gait_speed_target = 1.0
@@ -918,6 +922,24 @@ class HexapodRunner(Node):
             except ValueError:
                 pass
 
+    def _stable_auto_rotation_az(self, az):
+        if abs(az) < AUTO_ROTATION_DEADBAND_RAD_S:
+            self._auto_rotation_sign = 0.0
+            return 0.0
+
+        candidate_sign = 1.0 if az > 0.0 else -1.0
+
+        if self._auto_rotation_sign == 0.0:
+            self._auto_rotation_sign = candidate_sign
+        elif candidate_sign != self._auto_rotation_sign:
+            flip_threshold = AUTO_ROTATION_DEADBAND_RAD_S + AUTO_ROTATION_HYSTERESIS_RAD_S
+            if abs(az) < flip_threshold:
+                candidate_sign = self._auto_rotation_sign
+            else:
+                self._auto_rotation_sign = candidate_sign
+
+        return candidate_sign * abs(az)
+
     def _cmd_vel_cb(self, msg: Twist):
         if not self.ready:
             return
@@ -929,6 +951,11 @@ class HexapodRunner(Node):
 
         lx, ly, az = self._apply_safe_mode_limit(
             msg.linear.x, msg.linear.y, msg.angular.z)
+
+        if self.manual_active:
+            self._auto_rotation_sign = 0.0
+        else:
+            az = self._stable_auto_rotation_az(az)
 
         if abs(lx) > 0.01 or abs(ly) > 0.01 or abs(az) > 0.01:
             self.cmd_vel_nav_active = True
@@ -1002,6 +1029,8 @@ class HexapodRunner(Node):
             self.pending_move_state = None
             self.zero_vel_since = None
             self.stop_requested = False
+            if not self.manual_active:
+                self._auto_rotation_sign = 0.0
             if self.state in ('WALKING', 'TURNING'):
                 self.state = 'IDLE'
                 self.waiting_for_sync = False

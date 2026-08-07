@@ -21,7 +21,7 @@ from tf2_ros import Buffer, TransformListener
 from tf2_ros import LookupException, ConnectivityException, ExtrapolationException
 
 from PyQt5.QtCore import Qt, QPoint, QRectF, QTimer
-from PyQt5.QtGui import QImage, QPainter, QPen, QBrush, QColor
+from PyQt5.QtGui import QImage, QPainter, QPen, QBrush, QColor, QTransform
 from PyQt5.QtWidgets import (
     QApplication,
     QGridLayout,
@@ -75,6 +75,9 @@ def _badge_style(color):
         f'background-color: {color}; color: white; font-weight: bold;'
         'padding: 4px 10px; border-radius: 6px;'
     )
+
+
+MAP_VIEW_ROTATION_DEG = -90
 
 
 class MapCanvas(QWidget):
@@ -179,6 +182,25 @@ class MapCanvas(QWidget):
         y = self.origin_y + row * self.resolution
         return (x, y)
 
+    def _view_transform(self):
+        if self.draw_rect is None:
+            return QTransform()
+        rx, ry, rw, rh = self.draw_rect
+        center = QPoint(int(rx + rw / 2.0), int(ry + rh / 2.0))
+        t = QTransform()
+        t.translate(center.x(), center.y())
+        t.rotate(MAP_VIEW_ROTATION_DEG)
+        t.translate(-center.x(), -center.y())
+        return t
+
+    def _view_to_map_pos(self, pos):
+        if self.draw_rect is None:
+            return pos
+        inverted, invertible = self._view_transform().inverted()
+        if not invertible:
+            return pos
+        return inverted.map(pos)
+
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
@@ -195,6 +217,7 @@ class MapCanvas(QWidget):
         dw, dh = iw * scale, ih * scale
         dx, dy = (w - dw) / 2.0, (h - dh) / 2.0
         self.draw_rect = (dx, dy, dw, dh)
+        painter.setTransform(self._view_transform(), True)
         painter.drawImage(QRectF(dx, dy, dw, dh), self.image)
 
         if len(self.plan_points) > 1:
@@ -244,22 +267,23 @@ class MapCanvas(QWidget):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            world = self._widget_to_world(event.pos())
+            pos = self._view_to_map_pos(event.pos())
+            world = self._widget_to_world(pos)
             if world is not None:
-                self.press_point = event.pos()
-                self.drag_point = event.pos()
+                self.press_point = pos
+                self.drag_point = pos
                 self.update()
 
     def mouseMoveEvent(self, event):
         if self.press_point is not None:
-            self.drag_point = event.pos()
+            self.drag_point = self._view_to_map_pos(event.pos())
             self.update()
 
     def mouseReleaseEvent(self, event):
         if event.button() != Qt.LeftButton or self.press_point is None:
             return
         start_world = self._widget_to_world(self.press_point)
-        end_world = self._widget_to_world(event.pos())
+        end_world = self._widget_to_world(self._view_to_map_pos(event.pos()))
         self.press_point = None
         self.drag_point = None
         self.update()
