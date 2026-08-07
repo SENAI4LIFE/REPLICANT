@@ -343,6 +343,8 @@ class NavGoalNode(Node):
         self.last_hexapod_state = None
         self.last_nav_mode = 'TURN_1'
         self.manual_active = False
+        self.lateral_opt_active = False
+        self._recovery_active = False
         self._spin_near_goal_since = None
         self._spin_near_goal_start_dist = None
         self._final_strafe_active = False
@@ -375,6 +377,7 @@ class NavGoalNode(Node):
         if manual_active and not self.manual_active and self.nav_active:
             self.cancel_goal()
         self.manual_active = manual_active
+        self._refresh_lateral_opt()
         if self.on_hexapod_state:
             self.on_hexapod_state(data)
 
@@ -389,6 +392,21 @@ class NavGoalNode(Node):
         msg = String()
         msg.data = key
         self.nav_status_pub.publish(msg)
+
+    def _set_lateral_opt(self, active):
+        if active == self.lateral_opt_active:
+            return
+        self.lateral_opt_active = active
+        self.send_state('LATERAL_OPT_ON' if active else 'LATERAL_OPT_OFF')
+
+    def _refresh_lateral_opt(self):
+        should_be_active = (
+            self.nav_active
+            and not self.manual_active
+            and not self._recovery_active
+            and not self._final_strafe_active
+        )
+        self._set_lateral_opt(should_be_active)
 
     def current_pose(self):
         try:
@@ -466,6 +484,7 @@ class NavGoalNode(Node):
         self.send_state('NAV_OMNI')
         self._final_strafe_active = True
         self._final_strafe_end_time = time.monotonic() + FINAL_APPROACH_MAX_TIME_S
+        self._refresh_lateral_opt()
 
         self._emit_status('sending', 'Close to goal, strafing in directly...')
 
@@ -501,6 +520,7 @@ class NavGoalNode(Node):
 
     def _stop_final_strafe(self, succeeded):
         self._final_strafe_active = False
+        self._refresh_lateral_opt()
         self.cmd_vel_pub.publish(Twist())
         if not self.manual_active:
             self.send_state(f'NAV_{self._final_strafe_prev_nav_mode}')
@@ -617,6 +637,7 @@ class NavGoalNode(Node):
         self.nav_active = True
         self.nav_start_time = time.monotonic()
         self.distance_remaining = None
+        self._refresh_lateral_opt()
         if self.on_distance:
             self.on_distance(None, None)
 
@@ -640,6 +661,7 @@ class NavGoalNode(Node):
         self.nav_active = False
         self.nav_start_time = None
         self.distance_remaining = None
+        self._refresh_lateral_opt()
         stop = Twist()
         self.cmd_vel_pub.publish(stop)
         if self.on_distance:
@@ -653,6 +675,9 @@ class NavGoalNode(Node):
     def recover_and_go_safe(self):
         self._goal_generation += 1
         my_generation = self._goal_generation
+
+        self._recovery_active = True
+        self._refresh_lateral_opt()
 
         self._emit_status('sending', 'Backing away from obstacle...')
 
@@ -709,9 +734,11 @@ class NavGoalNode(Node):
             return
         if goal_handle is None or not goal_handle.accepted:
             self.nav_active = False
+            self._refresh_lateral_opt()
             self._emit_status('rejected', 'Goal rejected')
             return
         self._goal_handle = goal_handle
+        self._refresh_lateral_opt()
         self._emit_status('navigating', 'Goal accepted, navigating...')
         result_future = goal_handle.get_result_async()
         result_future.add_done_callback(
@@ -748,6 +775,8 @@ class NavGoalNode(Node):
             self.recover_and_go_safe()
             return
 
+        self._recovery_active = False
+        self._refresh_lateral_opt()
         self._emit_status(key, label)
         if self.on_result:
             self.on_result()

@@ -31,6 +31,21 @@ CORRIDOR_BIAS_SMOOTHING       = 0.15
 
 FORWARD_CONE_HALF_WIDTH_DEG = 35.0
 
+LATERAL_OPT_SENSE_RANGE_M    = 1.0
+LATERAL_OPT_DEADBAND_M       = 0.04
+LATERAL_OPT_GAIN_MPS_PER_M   = 0.12
+LATERAL_OPT_MAX_LATERAL_MPS  = 0.06
+LATERAL_OPT_MAX_BIAS_DEG     = 10.0
+LATERAL_OPT_SMOOTHING        = 0.10
+LATERAL_OPT_COSTMAP_WEIGHT   = 0.5
+LATERAL_OPT_COSTMAP_PROBES_M = (0.20, 0.35, 0.50)
+LATERAL_OPT_BANDS = (
+    (35.0, 12.0, 0.6),
+    (60.0, 12.0, 1.0),
+    (90.0, 12.0, 0.85),
+    (120.0, 12.0, 0.5),
+)
+
 CMD_VEL_TIMEOUT_S = 0.5
 ZERO_VEL_IDLE_DEBOUNCE_S = 0.35
 
@@ -473,6 +488,12 @@ class HexapodRunner(Node):
         self.forward_obstacle_dist_m = None
         self.clearance_throttling = False
 
+        self.lateral_opt_enabled = False
+        self.lateral_clearance_bias_deg = 0.0
+        self.target_lateral_clearance_bias_deg = 0.0
+        self.scan_left_clearance_m = None
+        self.scan_right_clearance_m = None
+
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.costmap = None
@@ -719,12 +740,109 @@ class HexapodRunner(Node):
                 closest = r
         self.min_obstacle_dist_m = closest if closest != float('inf') else None
 
+        self.scan_left_clearance_m = self._scan_side_clearance(msg, 1.0)
+        self.scan_right_clearance_m = self._scan_side_clearance(msg, -1.0)
+
         travel_deg = self.angle_joystick if self.state in ('WALKING',) else 0.0
         forward = sector_min(
             travel_deg - FORWARD_CONE_HALF_WIDTH_DEG,
             travel_deg + FORWARD_CONE_HALF_WIDTH_DEG,
         )
         self.forward_obstacle_dist_m = forward if forward != float('inf') else None
+
+    def _band_min(self, msg, center_deg, half_width_deg):
+        lo = math.radians(center_deg - half_width_deg)
+        hi = math.radians(center_deg + half_width_deg)
+        best = float('inf')
+        angle = msg.angle_min
+        for r in msg.ranges:
+            if lo <= angle <= hi and msg.range_min < r < msg.range_max:
+                if r < best:
+                    best = r
+            angle += msg.angle_increment
+        return best
+
+    def _scan_side_clearance(self, msg, sign):
+        total = 0.0
+        weight_sum = 0.0
+        for center_deg, half_width_deg, weight in LATERAL_OPT_BANDS:
+            dist = self._band_min(msg, sign * center_deg, half_width_deg)
+            if dist == float('inf'):
+                continue
+            capped = min(dist, LATERAL_OPT_SENSE_RANGE_M)
+            total += capped * weight
+            weight_sum += weight
+        if weight_sum == 0.0:
+            return None
+        return total / weight_sum
+
+    def _costmap_lateral_clearance(self):
+        if self.costmap is None:
+            return None, None
+        pose = self._costmap_robot_pose()
+        if pose is None:
+            return None, None
+        rx, ry, ryaw = pose
+
+        def side_score(sign):
+            total = 0.0
+            count = 0
+            for probe in LATERAL_OPT_COSTMAP_PROBES_M:
+                wx = rx + probe * math.cos(ryaw + sign * math.pi / 2.0)
+                wy = ry + probe * math.sin(ryaw + sign * math.pi / 2.0)
+                cost = self._costmap_cost_at(wx, wy)
+                if cost is None or cost < 0:
+                    continue
+                freeness = max(0.0, 1.0 - cost / 100.0)
+                total += freeness * probe
+                count += 1
+            if count == 0:
+                return None
+            return total / count
+
+        return side_score(1.0), side_score(-1.0)
+
+    def _sample_lateral_clearance(self):
+        scan_left = self.scan_left_clearance_m
+        scan_right = self.scan_right_clearance_m
+        cm_left, cm_right = self._costmap_lateral_clearance()
+
+        if scan_left is None and cm_left is None:
+            return None, None
+        if cm_left is None:
+            return scan_left, scan_right
+        if scan_left is None:
+            return cm_left, cm_right
+
+        w = LATERAL_OPT_COSTMAP_WEIGHT
+        left = (1.0 - w) * scan_left + w * cm_left
+        right = (1.0 - w) * scan_right + w * cm_right
+        return left, right
+
+    def _apply_lateral_clearance_optimization(self):
+        if (not self.lateral_opt_enabled or self.manual_active
+                or self.strafe_active or self.failsafe_active
+                or self.state != 'WALKING'):
+            self.target_lateral_clearance_bias_deg = 0.0
+            return
+
+        left_clear, right_clear = self._sample_lateral_clearance()
+        if left_clear is None or right_clear is None:
+            self.target_lateral_clearance_bias_deg = 0.0
+            return
+
+        diff = left_clear - right_clear
+        if abs(diff) < LATERAL_OPT_DEADBAND_M:
+            self.target_lateral_clearance_bias_deg = 0.0
+            return
+
+        lateral_speed = diff * LATERAL_OPT_GAIN_MPS_PER_M
+        lateral_speed = max(-LATERAL_OPT_MAX_LATERAL_MPS,
+                             min(LATERAL_OPT_MAX_LATERAL_MPS, lateral_speed))
+        forward_speed = max(0.05, BASE_LINEAR_SPEED * self.gait_speed)
+        bias_deg = math.degrees(math.atan2(lateral_speed, forward_speed))
+        self.target_lateral_clearance_bias_deg = max(
+            -LATERAL_OPT_MAX_BIAS_DEG, min(LATERAL_OPT_MAX_BIAS_DEG, bias_deg))
 
     def _state_cb(self, msg: String):
         cmd = msg.data.upper().strip()
@@ -740,6 +858,14 @@ class HexapodRunner(Node):
             return
         elif cmd == 'SAFE_OFF':
             self.safe_mode = False
+            return
+        elif cmd == 'LATERAL_OPT_ON':
+            self.lateral_opt_enabled = True
+            return
+        elif cmd == 'LATERAL_OPT_OFF':
+            self.lateral_opt_enabled = False
+            self.target_lateral_clearance_bias_deg = 0.0
+            self.lateral_clearance_bias_deg = 0.0
             return
 
         if cmd != 'BOOT' and not self.ready:
@@ -1167,6 +1293,11 @@ class HexapodRunner(Node):
             self.target_corridor_bias_deg - self.corridor_bias_deg
         ) * CORRIDOR_BIAS_SMOOTHING
 
+        self._apply_lateral_clearance_optimization()
+        self.lateral_clearance_bias_deg += (
+            self.target_lateral_clearance_bias_deg - self.lateral_clearance_bias_deg
+        ) * LATERAL_OPT_SMOOTHING
+
         if self.state in ('WALKING', 'TURNING') and not self.strafe_active:
             diff = self.angle_joystick_target - self.angle_joystick
             diff = math.atan2(math.sin(math.radians(diff)), math.cos(math.radians(diff)))
@@ -1203,7 +1334,9 @@ class HexapodRunner(Node):
             self.transition_k = 0
 
         if state == 'WALKING':
-            angle_rad = math.radians(self.angle_joystick + self.corridor_bias_deg)
+            angle_rad = math.radians(
+                self.angle_joystick + self.corridor_bias_deg
+                + self.lateral_clearance_bias_deg)
             results   = compute_andar(self.k, angle_rad, self.xyz_ini, self.bezier)
             self._publish_joints_blended(results)
             self.k = (self.k + self._advance_steps()) % TOTAL_PONTOS
@@ -1304,6 +1437,8 @@ class HexapodRunner(Node):
             'roll_deg': round(math.degrees(self.smoothed_rpy[0]), 1),
             'pitch_deg': round(math.degrees(self.smoothed_rpy[1]), 1),
             'corridor_bias_deg': round(self.corridor_bias_deg, 1),
+            'lateral_opt_enabled': self.lateral_opt_enabled,
+            'lateral_clearance_bias_deg': round(self.lateral_clearance_bias_deg, 1),
             'strafe_active': self.strafe_active,
             'min_obstacle_dist_m': (
                 round(self.min_obstacle_dist_m, 3)
