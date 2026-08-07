@@ -344,6 +344,7 @@ class NavGoalNode(Node):
         self.last_nav_mode = 'TURN_1'
         self.manual_active = False
         self._spin_near_goal_since = None
+        self._spin_near_goal_start_dist = None
         self._final_strafe_active = False
         self._final_strafe_end_time = None
         self._final_strafe_prev_nav_mode = 'TURN_1'
@@ -406,24 +407,50 @@ class NavGoalNode(Node):
 
         if not self.nav_active or self._goal_handle is None or self._last_goal_xy is None:
             self._spin_near_goal_since = None
+            self._spin_near_goal_start_dist = None
             return
 
         if self.distance_remaining is None or self.distance_remaining > FINAL_APPROACH_RADIUS_M:
             self._spin_near_goal_since = None
+            self._spin_near_goal_start_dist = None
+            return
+
+        pose = self.current_pose()
+        if pose is None:
+            self._spin_near_goal_since = None
+            self._spin_near_goal_start_dist = None
+            return
+
+        gx, gy = self._last_goal_xy
+        actual_dist = math.hypot(gx - pose[0], gy - pose[1])
+        if actual_dist > FINAL_APPROACH_RADIUS_M:
+            self._spin_near_goal_since = None
+            self._spin_near_goal_start_dist = None
+            return
+
+        if actual_dist <= FINAL_APPROACH_ARRIVE_M:
+            self._spin_near_goal_since = None
+            self._spin_near_goal_start_dist = None
             return
 
         if self.last_hexapod_state != 'TURNING':
             self._spin_near_goal_since = None
+            self._spin_near_goal_start_dist = None
             return
 
         now = time.monotonic()
         if self._spin_near_goal_since is None:
             self._spin_near_goal_since = now
+            self._spin_near_goal_start_dist = actual_dist
             return
 
         if now - self._spin_near_goal_since >= FINAL_APPROACH_SPIN_STALL_S:
+            start_dist = self._spin_near_goal_start_dist
             self._spin_near_goal_since = None
-            self._start_final_strafe()
+            self._spin_near_goal_start_dist = None
+            progress = (start_dist - actual_dist) if start_dist is not None else 0.0
+            if progress < FINAL_APPROACH_ARRIVE_M:
+                self._start_final_strafe()
 
     def _start_final_strafe(self):
         if self.manual_active:
@@ -567,6 +594,7 @@ class NavGoalNode(Node):
         if not is_retry:
             self._auto_retry_used = False
         self._spin_near_goal_since = None
+        self._spin_near_goal_start_dist = None
         self._final_strafe_active = False
         self._goal_generation += 1
         my_generation = self._goal_generation
@@ -601,6 +629,7 @@ class NavGoalNode(Node):
         self._goal_generation += 1
         my_generation = self._goal_generation
         self._spin_near_goal_since = None
+        self._spin_near_goal_start_dist = None
         self._final_strafe_active = False
         handle = self._goal_handle
         if handle is not None:
