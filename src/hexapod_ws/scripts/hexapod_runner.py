@@ -34,6 +34,11 @@ FORWARD_CONE_HALF_WIDTH_DEG = 35.0
 CMD_VEL_TIMEOUT_S = 0.5
 ZERO_VEL_IDLE_DEBOUNCE_S = 0.35
 
+HEADING_SMOOTHING_GAIN     = 0.35
+HEADING_SNAP_THRESHOLD_DEG = 100.0
+GAIT_SPEED_RAMP_UP_GAIN    = 0.45
+GAIT_SPEED_RAMP_DOWN_GAIN  = 0.22
+
 STALL_CHECK_INTERVAL_S    = 1.5
 STALL_MIN_PROGRESS_M      = 0.03
 STALL_MIN_PROGRESS_RAD    = math.radians(4.0)
@@ -490,8 +495,10 @@ class HexapodRunner(Node):
         self.POSE_STEP  = 1.5
 
         self.angle_joystick = 0.0
+        self.angle_joystick_target = 0.0
 
         self.gait_speed = 1.0
+        self.gait_speed_target = 1.0
         self.k_accum    = 0.0
 
         self.smoothed_rpy = [0.0, 0.0, 0.0]
@@ -804,13 +811,17 @@ class HexapodRunner(Node):
 
             lin_mag = math.hypot(lx, ly)
             ang_mag = abs(az)
-            if lin_mag > 0.01:
-                ratio = lin_mag / BASE_LINEAR_SPEED
+            lin_ratio = lin_mag / BASE_LINEAR_SPEED
+            ang_ratio = ang_mag / BASE_ANGULAR_SPEED
+            if lin_mag > 0.01 and ang_mag > 0.01:
+                ratio = max(lin_ratio, ang_ratio)
+            elif lin_mag > 0.01:
+                ratio = lin_ratio
             elif ang_mag > 0.01:
-                ratio = ang_mag / BASE_ANGULAR_SPEED
+                ratio = ang_ratio
             else:
                 ratio = 1.0
-            self.gait_speed = min(GAIT_SPEED_MAX, max(GAIT_SPEED_MIN, ratio))
+            self.gait_speed_target = min(GAIT_SPEED_MAX, max(GAIT_SPEED_MIN, ratio))
 
             target_state = 'WALKING'
             target_angle = self.angle_joystick
@@ -841,7 +852,7 @@ class HexapodRunner(Node):
 
             if in_gait and target_gait:
                 if target_state == self.state:
-                    self.angle_joystick = target_angle
+                    self.angle_joystick_target = target_angle
                     self.waiting_for_sync = False
                     self.pending_gait_state = None
                 else:
@@ -856,6 +867,7 @@ class HexapodRunner(Node):
                         self.state = 'IDLE'
                 else:
                     self.angle_joystick = target_angle
+                    self.angle_joystick_target = target_angle
                     self.state = target_state
                     self.waiting_for_sync = False
                     self.pending_gait_state = None
@@ -970,6 +982,7 @@ class HexapodRunner(Node):
         target_angle = math.degrees(math.atan2(-ly_body, -lx_body))
 
         self.gait_speed = GAIT_SPEED_MIN
+        self.gait_speed_target = GAIT_SPEED_MIN
         if self.state in ('PATINHA', 'POSE') or self.pending_move_state is not None:
             self.pending_move_state = 'WALKING'
             self.pending_move_angle = target_angle
@@ -979,6 +992,7 @@ class HexapodRunner(Node):
             self.angle_joystick = target_angle
             self.state = 'WALKING'
 
+        self.angle_joystick_target = target_angle
         if cost is not None and cost < FAILSAFE_RISK_COST:
             self.failsafe_clear_ticks += 1
         else:
@@ -1086,6 +1100,7 @@ class HexapodRunner(Node):
             self.nav_mode = 'OMNI'
         self.gait_speed = GAIT_SPEED_MIN
         self.angle_joystick = 90.0 if self.strafe_direction > 0 else -90.0
+        self.angle_joystick_target = self.angle_joystick
         self.state = 'WALKING'
         self.pending_move_state = None
 
@@ -1152,6 +1167,23 @@ class HexapodRunner(Node):
             self.target_corridor_bias_deg - self.corridor_bias_deg
         ) * CORRIDOR_BIAS_SMOOTHING
 
+        if self.state in ('WALKING', 'TURNING') and not self.strafe_active:
+            diff = self.angle_joystick_target - self.angle_joystick
+            diff = math.atan2(math.sin(math.radians(diff)), math.cos(math.radians(diff)))
+            diff = math.degrees(diff)
+            if abs(diff) >= HEADING_SNAP_THRESHOLD_DEG:
+                self.angle_joystick = self.angle_joystick_target
+            else:
+                self.angle_joystick += diff * HEADING_SMOOTHING_GAIN
+        else:
+            self.angle_joystick = self.angle_joystick_target
+
+        if not self.strafe_active and not self.failsafe_active:
+            speed_diff = self.gait_speed_target - self.gait_speed
+            gain = GAIT_SPEED_RAMP_UP_GAIN if speed_diff > 0.0 else GAIT_SPEED_RAMP_DOWN_GAIN
+            self.gait_speed += speed_diff * gain
+            self.gait_speed = max(GAIT_SPEED_MIN, min(GAIT_SPEED_MAX, self.gait_speed))
+
         state = self.state
 
         if state in ('WALKING', 'TURNING') and self.prev_state not in ('WALKING', 'TURNING'):
@@ -1164,6 +1196,7 @@ class HexapodRunner(Node):
         if self.waiting_for_sync and self.state in ('WALKING', 'TURNING') and (self.k == 0 or self.k == METADE_PONTOS):
             self.state = self.pending_gait_state
             self.angle_joystick = self.pending_gait_angle
+            self.angle_joystick_target = self.pending_gait_angle
             self.waiting_for_sync = False
             self.pending_gait_state = None
             self.transition_from = None
@@ -1250,6 +1283,7 @@ class HexapodRunner(Node):
 
             if self.idle_from_xyz is None and self.pending_move_state is not None:
                 self.angle_joystick     = self.pending_move_angle
+                self.angle_joystick_target = self.pending_move_angle
                 self.state              = self.pending_move_state
                 self.pending_move_state = None
 
