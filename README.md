@@ -256,7 +256,7 @@ git clone -b ros2 https://github.com/aws-robotics/aws-robomaker-small-house-worl
 
 ### LiDAR
 
-360 samples over 360°, 15 Hz, range 0.10–12.0 m, mounted on `base_link`. The raw bridged topic `/scan_bridge` carries a frame ID that doesn't match ROS's TF tree; use `/scan` (relayed and re-framed by the `ScanRelay` node inside `hexapod_runner.py`) instead. That relay also drops scans while the robot's body tilt exceeds 15°, so a stumble or a stair-step in the gait doesn't feed a corrupted, tilted scan into SLAM or Nav2's costmaps.
+720 samples over 360°, 15 Hz, range 0.10–12.0 m, mounted on `base_link`. The raw bridged topic `/scan_bridge` carries a frame ID that doesn't match ROS's TF tree; use `/scan` (relayed and re-framed by the `ScanRelay` node inside `hexapod_runner.py`) instead. That relay also drops scans while the robot's body tilt exceeds 15°, so a stumble or a stair-step in the gait doesn't feed a corrupted, tilted scan into SLAM or Nav2's costmaps.
 
 Enabled by default. Disable it with `lidar:=false`:
 ```bash
