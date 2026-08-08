@@ -77,6 +77,46 @@ def _badge_style(color):
     )
 
 
+def _button_style(kind='normal'):
+    styles = {
+        'normal': (
+            'QPushButton {background-color: #3A3A3A; color: #EAEAEA; '
+            'border: 1px solid #555555; border-radius: 5px; padding: 6px 10px;}'
+            'QPushButton:hover {background-color: #454545;}'
+            'QPushButton:pressed {background-color: #2A2A2A;}'
+        ),
+        'safety': (
+            'QPushButton {background-color: #7C4A12; color: #FFE8CC; '
+            'border: 1px solid #F59E0B; border-radius: 5px; padding: 6px 10px;}'
+            'QPushButton:hover {background-color: #8F5714;}'
+            'QPushButton:pressed {background-color: #5E3A0E;}'
+        ),
+        'shutdown': (
+            'QPushButton {background-color: #7A1F1F; color: #FFE0E0; '
+            'border: 1px solid #EF4444; border-radius: 5px; padding: 6px 10px;}'
+            'QPushButton:hover {background-color: #8E2626;}'
+            'QPushButton:pressed {background-color: #5E1818;}'
+        ),
+        'boot': (
+            'QPushButton {background-color: #14532D; color: #DFFCE8; '
+            'border: 1px solid #22C55E; border-radius: 5px; padding: 6px 10px;}'
+            'QPushButton:hover {background-color: #1A6B39;}'
+            'QPushButton:pressed {background-color: #0F3D21;}'
+        ),
+    }
+    return styles.get(kind, styles['normal'])
+
+
+_NAV_BUTTON_STYLE = (
+    'QPushButton {background-color: #3A3A3A; color: #EAEAEA; '
+    'border: 1px solid #555555; border-radius: 5px; padding: 6px 10px;}'
+    'QPushButton:hover {background-color: #454545;}'
+    'QPushButton:pressed {background-color: #2A2A2A;}'
+    'QPushButton:checked {background-color: #1D4ED8; color: white; '
+    'font-weight: bold; border: 2px solid #93C5FD;}'
+)
+
+
 MAP_VIEW_ROTATION_DEG = -90
 
 
@@ -204,7 +244,7 @@ class MapCanvas(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        painter.fillRect(self.rect(), QColor(48, 48, 48))
+        painter.fillRect(self.rect(), QColor(32, 32, 32))
 
         if self.image is None:
             painter.setPen(QColor(200, 200, 200))
@@ -815,9 +855,18 @@ class NavGoalWindow(QMainWindow):
         super().__init__()
         self.node = node
         self.setWindowTitle('Tiffany Nav2 Destination')
+        self.setStyleSheet('QMainWindow {background-color: #202020;} '
+                           'QLabel {color: #E5E5E5;} '
+                           'QGroupBox {color: #B8B8B8; font-weight: bold; '
+                           'border: 1px solid #444444; border-radius: 6px; '
+                           'margin-top: 10px; padding-top: 8px;} '
+                           'QGroupBox::title {subcontrol-origin: margin; '
+                           'left: 8px; padding: 0 4px;}')
 
         central = QWidget()
         layout = QVBoxLayout(central)
+        layout.setSpacing(8)
+        layout.setContentsMargins(10, 10, 10, 10)
 
         badge_row = QHBoxLayout()
         self.hexapod_badge = QLabel('HEXAPOD: NO DATA')
@@ -831,12 +880,16 @@ class NavGoalWindow(QMainWindow):
 
         top_row = QHBoxLayout()
         boot_btn = QPushButton('Boot')
+        boot_btn.setStyleSheet(_button_style('boot'))
         boot_btn.clicked.connect(lambda: self.node.send_state('BOOT'))
         shutdown_btn = QPushButton('Shutdown')
+        shutdown_btn.setStyleSheet(_button_style('shutdown'))
         shutdown_btn.clicked.connect(lambda: self.node.send_state('SHUTDOWN'))
         cancel_btn = QPushButton('Cancel Goal')
+        cancel_btn.setStyleSheet(_button_style('normal'))
         cancel_btn.clicked.connect(self._on_cancel)
         safe_spot_btn = QPushButton('Move to Safe Spot')
+        safe_spot_btn.setStyleSheet(_button_style('safety'))
         safe_spot_btn.setToolTip('Back away, then drive to a clear spot at a different angle')
         safe_spot_btn.clicked.connect(self._on_move_to_safe_spot)
         top_row.addWidget(boot_btn)
@@ -849,6 +902,7 @@ class NavGoalWindow(QMainWindow):
         for label, cmd in (('Idle', 'IDLE'), ('Balance', 'BALANCE'),
                            ('Patinha', 'PATINHA'), ('Rebolar', 'REBOLAR')):
             btn = QPushButton(label)
+            btn.setStyleSheet(_button_style('normal'))
             btn.clicked.connect(lambda _, c=cmd: self.node.send_state(c))
             mode_row.addWidget(btn)
         layout.addLayout(mode_row)

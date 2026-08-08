@@ -13,6 +13,8 @@ from PyQt5.QtCore import Qt, QPointF, QTimer
 from PyQt5.QtGui import QBrush, QColor, QPainter, QPen
 from PyQt5.QtWidgets import (
     QApplication,
+    QGridLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -42,6 +44,104 @@ NAV2_STATUS_LABELS = {
     'aborted': 'Idle',
     'unavailable': 'Idle',
 }
+
+ROBOT_STATE_COLORS = {
+    'Booted': '#22C55E',
+    'Shutdown': '#6B7280',
+}
+
+CONTROL_SOURCE_COLORS = {
+    'Manual': '#F59E0B',
+    'Nav2': '#3B82F6',
+}
+
+NAV2_STATUS_COLORS = {
+    'idle': '#374151',
+    'sending': '#F59E0B',
+    'navigating': '#3B82F6',
+    'succeeded': '#22C55E',
+    'canceled': '#F97316',
+    'aborted': '#EF4444',
+    'rejected': '#EF4444',
+    'unavailable': '#EF4444',
+}
+
+SAFE_MODE_COLORS = {
+    True: '#EF4444',
+    False: '#6B7280',
+}
+
+
+def _badge_style(color):
+    return (
+        f'background-color: {color}; color: white; font-weight: bold;'
+        'padding: 4px 10px; border-radius: 6px;'
+    )
+
+
+def _button_style(kind='normal'):
+    styles = {
+        'normal': (
+            'QPushButton {background-color: #3A3A3A; color: #EAEAEA; '
+            'border: 1px solid #555555; border-radius: 5px; padding: 6px 10px;}'
+            'QPushButton:hover {background-color: #454545;}'
+            'QPushButton:pressed {background-color: #2A2A2A;}'
+        ),
+        'safety': (
+            'QPushButton {background-color: #7C4A12; color: #FFE8CC; '
+            'border: 1px solid #F59E0B; border-radius: 5px; padding: 6px 10px;}'
+            'QPushButton:hover {background-color: #8F5714;}'
+            'QPushButton:pressed {background-color: #5E3A0E;}'
+        ),
+        'shutdown': (
+            'QPushButton {background-color: #7A1F1F; color: #FFE0E0; '
+            'border: 1px solid #EF4444; border-radius: 5px; padding: 6px 10px;}'
+            'QPushButton:hover {background-color: #8E2626;}'
+            'QPushButton:pressed {background-color: #5E1818;}'
+        ),
+        'boot': (
+            'QPushButton {background-color: #14532D; color: #DFFCE8; '
+            'border: 1px solid #22C55E; border-radius: 5px; padding: 6px 10px;}'
+            'QPushButton:hover {background-color: #1A6B39;}'
+            'QPushButton:pressed {background-color: #0F3D21;}'
+        ),
+    }
+    return styles.get(kind, styles['normal'])
+
+
+_NAV_BUTTON_STYLE = (
+    'QPushButton {background-color: #3A3A3A; color: #EAEAEA; '
+    'border: 1px solid #555555; border-radius: 5px; padding: 6px 10px;}'
+    'QPushButton:hover {background-color: #454545;}'
+    'QPushButton:pressed {background-color: #2A2A2A;}'
+    'QPushButton:checked {background-color: #1D4ED8; color: white; '
+    'font-weight: bold; border: 2px solid #93C5FD;}'
+)
+
+_KB_MOVE_STYLE = (
+    'QPushButton {background-color: #3A3A3A; color: #EAEAEA; '
+    'border: 1px solid #555555; border-radius: 6px;}'
+    'QPushButton:hover {background-color: #454545;}'
+    'QPushButton:pressed {background-color: #2A2A2A;}'
+)
+
+_KB_DIAGONAL_STYLE = (
+    'QPushButton {background-color: #33415C; color: #DCE6FF; '
+    'border: 1px solid #4C6284; border-radius: 6px;}'
+    'QPushButton:hover {background-color: #3D4E70;}'
+    'QPushButton:pressed {background-color: #283349;}'
+    'QPushButton:disabled {background-color: #262626; color: #6B7280; '
+    'border: 1px solid #3A3A3A;}'
+)
+
+_KB_STOP_STYLE = (
+    'QPushButton {background-color: #7A1F1F; color: #FFE0E0; '
+    'border: 1px solid #EF4444; border-radius: 6px; font-weight: bold;}'
+    'QPushButton:hover {background-color: #8E2626;}'
+    'QPushButton:pressed {background-color: #5E1818;}'
+)
+
+DIAGONAL_MODES = ('OMNI_2', 'TURN_2')
 
 
 class JoystickPad(QWidget):
@@ -195,11 +295,21 @@ class JoystickWindow(QMainWindow):
         self.manual_active = False
         self.safe_mode = False
         self.setWindowTitle('Tiffany Virtual Joystick')
+        self.setStyleSheet('QMainWindow {background-color: #202020;} '
+                            'QLabel {color: #E5E5E5;} '
+                            'QGroupBox {color: #B8B8B8; font-weight: bold; '
+                            'border: 1px solid #444444; border-radius: 6px; '
+                            'margin-top: 10px; padding-top: 8px;} '
+                            'QGroupBox::title {subcontrol-origin: margin; '
+                            'left: 8px; padding: 0 4px;}')
 
         central = QWidget()
         layout = QVBoxLayout(central)
+        layout.setSpacing(8)
+        layout.setContentsMargins(10, 10, 10, 10)
 
-        status_row = QHBoxLayout()
+        status_box = QGroupBox('Status')
+        status_row = QHBoxLayout(status_box)
         self.status_labels = {}
         for key, title in (
             ('robot_state', 'Robot'),
@@ -209,27 +319,34 @@ class JoystickWindow(QMainWindow):
             ('nav2_status', 'Nav2'),
         ):
             label = QLabel(f'{title}: --')
+            label.setStyleSheet(_badge_style('#374151'))
             self.status_labels[key] = label
             status_row.addWidget(label)
-        layout.addLayout(status_row)
+        status_row.addStretch(1)
+        layout.addWidget(status_box)
 
-        top_row = QHBoxLayout()
+        controls_box = QGroupBox('Robot Controls')
+        top_row = QHBoxLayout(controls_box)
         boot_btn = QPushButton('Boot')
+        boot_btn.setStyleSheet(_button_style('boot'))
         boot_btn.clicked.connect(self._on_boot)
         shutdown_btn = QPushButton('Shutdown')
+        shutdown_btn.setStyleSheet(_button_style('shutdown'))
         shutdown_btn.clicked.connect(self._on_shutdown)
         self.pose_btn = QPushButton('Pose mode: OFF')
+        self.pose_btn.setStyleSheet(_button_style('normal'))
         self.pose_btn.clicked.connect(self._toggle_pose)
         self.safe_btn = QPushButton('Safe Mode: OFF')
+        self.safe_btn.setStyleSheet(_button_style('safety'))
         self.safe_btn.clicked.connect(self._toggle_safe_mode)
         top_row.addWidget(boot_btn)
         top_row.addWidget(shutdown_btn)
         top_row.addWidget(self.pose_btn)
         top_row.addWidget(self.safe_btn)
-        layout.addLayout(top_row)
+        layout.addWidget(controls_box)
 
-        nav_row = QHBoxLayout()
-        nav_row.addWidget(QLabel('Nav mode:'))
+        nav_box = QGroupBox('Navigation Mode')
+        nav_row = QHBoxLayout(nav_box)
         self.nav_buttons = {}
         for mode, label in (
             ('OMNI_1', 'Omni 1'),
@@ -239,44 +356,138 @@ class JoystickWindow(QMainWindow):
         ):
             btn = QPushButton(label)
             btn.setCheckable(True)
+            btn.setStyleSheet(_NAV_BUTTON_STYLE)
             btn.clicked.connect(lambda _checked, m=mode: self._set_nav_mode(m))
             nav_row.addWidget(btn)
             self.nav_buttons[mode] = btn
         self.nav_buttons['OMNI_2'].setChecked(True)
-        layout.addLayout(nav_row)
+        layout.addWidget(nav_box)
 
-        speed_row = QHBoxLayout()
+        speed_box = QGroupBox('Speed')
+        speed_row = QHBoxLayout(speed_box)
         speed_row.addWidget(QLabel('Max speed:'))
         self.speed_slider = QSlider(Qt.Horizontal)
         self.speed_slider.setRange(10, 100)
         self.speed_slider.setValue(50)
         self.speed_label = QLabel('50%')
+        self.speed_label.setStyleSheet('color: #93C5FD; font-weight: bold;')
         self.speed_slider.valueChanged.connect(
             lambda v: self.speed_label.setText(f'{v}%'))
         speed_row.addWidget(self.speed_slider)
         speed_row.addWidget(self.speed_label)
-        layout.addLayout(speed_row)
+        layout.addWidget(speed_box)
 
+        joystick_box = QGroupBox('Virtual Joystick')
+        joystick_layout = QVBoxLayout(joystick_box)
         self.pad = JoystickPad()
         self.pad.on_press = self._on_press
         self.pad.on_move = self._on_move
         self.pad.on_release = self._on_release
-        layout.addWidget(self.pad, stretch=1)
+        joystick_layout.addWidget(self.pad, stretch=1)
 
         self.values_label = QLabel('lx=0.00  ly=0.00  az=0.00')
-        layout.addWidget(self.values_label)
+        self.values_label.setAlignment(Qt.AlignCenter)
+        self.values_label.setStyleSheet('color: #93C5FD; font-family: monospace;')
+        joystick_layout.addWidget(self.values_label)
+        layout.addWidget(joystick_box, stretch=1)
 
-        anim_row = QHBoxLayout()
+        keyboard_box = QGroupBox('Keyboard Controls')
+        keyboard_layout = QVBoxLayout(keyboard_box)
+        keyboard_layout.setSpacing(6)
+
+        grid_wrap = QHBoxLayout()
+        keyboard_grid = QGridLayout()
+        keyboard_grid.setSpacing(4)
+
+        SQUARE = 52
+
+        self.kb_nw_btn = QPushButton('\u2196\nQ')
+        self.kb_forward_btn = QPushButton('\u2191\nW')
+        self.kb_ne_btn = QPushButton('\u2197\nE')
+        self.kb_left_btn = QPushButton('\u2190\nA')
+        self.kb_stop_btn = QPushButton('\u25A0\nSPACE')
+        self.kb_right_btn = QPushButton('\u2192\nD')
+        self.kb_sw_btn = QPushButton('\u2199\nZ')
+        self.kb_backward_btn = QPushButton('\u2193\nS')
+        self.kb_se_btn = QPushButton('\u2198\nC')
+
+        self.diagonal_buttons = {
+            'NW': self.kb_nw_btn,
+            'NE': self.kb_ne_btn,
+            'SW': self.kb_sw_btn,
+            'SE': self.kb_se_btn,
+        }
+
+        for btn in (self.kb_forward_btn, self.kb_left_btn, self.kb_right_btn,
+                    self.kb_backward_btn):
+            btn.setStyleSheet(_KB_MOVE_STYLE)
+            btn.setFixedSize(SQUARE, SQUARE)
+
+        for btn in self.diagonal_buttons.values():
+            btn.setStyleSheet(_KB_DIAGONAL_STYLE)
+            btn.setFixedSize(SQUARE, SQUARE)
+
+        self.kb_stop_btn.setStyleSheet(_KB_STOP_STYLE)
+        self.kb_stop_btn.setFixedSize(SQUARE, SQUARE)
+
+        self.kb_forward_btn.pressed.connect(lambda: self._on_kb_direction(1.0, 0.0))
+        self.kb_forward_btn.released.connect(self._on_kb_release)
+        self.kb_backward_btn.pressed.connect(lambda: self._on_kb_direction(-1.0, 0.0))
+        self.kb_backward_btn.released.connect(self._on_kb_release)
+        self.kb_left_btn.pressed.connect(lambda: self._on_kb_direction(0.0, 1.0))
+        self.kb_left_btn.released.connect(self._on_kb_release)
+        self.kb_right_btn.pressed.connect(lambda: self._on_kb_direction(0.0, -1.0))
+        self.kb_right_btn.released.connect(self._on_kb_release)
+        self.kb_stop_btn.clicked.connect(self._on_kb_stop)
+
+        self.kb_nw_btn.pressed.connect(lambda: self._on_kb_diagonal('NW'))
+        self.kb_nw_btn.released.connect(self._on_kb_release)
+        self.kb_ne_btn.pressed.connect(lambda: self._on_kb_diagonal('NE'))
+        self.kb_ne_btn.released.connect(self._on_kb_release)
+        self.kb_sw_btn.pressed.connect(lambda: self._on_kb_diagonal('SW'))
+        self.kb_sw_btn.released.connect(self._on_kb_release)
+        self.kb_se_btn.pressed.connect(lambda: self._on_kb_diagonal('SE'))
+        self.kb_se_btn.released.connect(self._on_kb_release)
+
+        keyboard_grid.addWidget(self.kb_nw_btn, 0, 0)
+        keyboard_grid.addWidget(self.kb_forward_btn, 0, 1)
+        keyboard_grid.addWidget(self.kb_ne_btn, 0, 2)
+        keyboard_grid.addWidget(self.kb_left_btn, 1, 0)
+        keyboard_grid.addWidget(self.kb_stop_btn, 1, 1)
+        keyboard_grid.addWidget(self.kb_right_btn, 1, 2)
+        keyboard_grid.addWidget(self.kb_sw_btn, 2, 0)
+        keyboard_grid.addWidget(self.kb_backward_btn, 2, 1)
+        keyboard_grid.addWidget(self.kb_se_btn, 2, 2)
+
+        grid_wrap.addStretch(1)
+        grid_wrap.addLayout(keyboard_grid)
+        grid_wrap.addStretch(1)
+        keyboard_layout.addLayout(grid_wrap)
+
+        balance_row = QHBoxLayout()
+        self.kb_balance_btn = QPushButton('Balance  (B)')
+        self.kb_balance_btn.setStyleSheet(_button_style('normal'))
+        self.kb_balance_btn.setMinimumHeight(36)
+        self.kb_balance_btn.clicked.connect(self._on_balance)
+        balance_row.addWidget(self.kb_balance_btn)
+        keyboard_layout.addLayout(balance_row)
+
+        layout.addWidget(keyboard_box)
+
+        anim_box = QGroupBox('Animations')
+        anim_row = QHBoxLayout(anim_box)
         rebolar_btn = QPushButton('Rebolar')
+        rebolar_btn.setStyleSheet(_button_style('normal'))
         rebolar_btn.clicked.connect(self._on_rebolar)
         patinha_btn = QPushButton('Patinha')
+        patinha_btn.setStyleSheet(_button_style('normal'))
         patinha_btn.clicked.connect(self._on_patinha)
         anim_row.addWidget(rebolar_btn)
         anim_row.addWidget(patinha_btn)
-        layout.addLayout(anim_row)
+        layout.addWidget(anim_box)
 
         self.setCentralWidget(central)
-        self.resize(420, 520)
+        self.resize(440, 760)
 
         self.node.on_feedback = self._on_feedback
         self.node.on_nav2_status = self._on_nav2_status
@@ -298,6 +509,10 @@ class JoystickWindow(QMainWindow):
     def _on_patinha(self):
         self.node.send_velocity(0.0, 0.0, 0.0)
         self.node.send_state('PATINHA')
+
+    def _on_balance(self):
+        self.node.send_velocity(0.0, 0.0, 0.0)
+        self.node.send_state('BALANCE')
 
     def _set_nav_mode(self, mode):
         self.node.send_velocity(0.0, 0.0, 0.0)
@@ -336,15 +551,39 @@ class JoystickWindow(QMainWindow):
         robot_state = 'Booted' if self.node.robot_ready else 'Shutdown'
         mode = self.node.confirmed_nav_mode or self.node.nav_mode
         control_source = 'Manual' if self.manual_active else 'Nav2'
-        nav2_status = NAV2_STATUS_LABELS.get(self.node.nav2_status, 'Idle')
+        nav2_key = self.node.nav2_status
+        nav2_status = NAV2_STATUS_LABELS.get(nav2_key, 'Idle')
 
         self.status_labels['robot_state'].setText(f'Robot: {robot_state}')
+        self.status_labels['robot_state'].setStyleSheet(
+            _badge_style(ROBOT_STATE_COLORS.get(robot_state, '#374151')))
+
         self.status_labels['nav_mode'].setText(
             f'Mode: {NAV_MODE_LABELS.get(mode, mode)}')
+        self.status_labels['nav_mode'].setStyleSheet(_badge_style('#3B82F6'))
+
         self.status_labels['control_source'].setText(f'Control: {control_source}')
+        self.status_labels['control_source'].setStyleSheet(
+            _badge_style(CONTROL_SOURCE_COLORS.get(control_source, '#374151')))
+
         self.status_labels['safe_mode'].setText(
             f'Safe Mode: {"ON" if self.safe_mode else "OFF"}')
+        self.status_labels['safe_mode'].setStyleSheet(
+            _badge_style(SAFE_MODE_COLORS[self.safe_mode]))
+
         self.status_labels['nav2_status'].setText(f'Nav2: {nav2_status}')
+        self.status_labels['nav2_status'].setStyleSheet(
+            _badge_style(NAV2_STATUS_COLORS.get(nav2_key, NAV2_STATUS_COLORS['idle'])))
+
+        self._update_diagonal_availability()
+
+    def _current_nav_mode(self):
+        return self.node.confirmed_nav_mode or self.node.nav_mode
+
+    def _update_diagonal_availability(self):
+        enabled = self._current_nav_mode() in DIAGONAL_MODES
+        for btn in self.diagonal_buttons.values():
+            btn.setEnabled(enabled)
 
     def _on_move(self, linear, angular):
         if self.pose_mode:
@@ -392,6 +631,42 @@ class JoystickWindow(QMainWindow):
             return
         self.node.send_velocity(0.0, 0.0, 0.0)
         self.values_label.setText('lx=0.00  ly=0.00  az=0.00')
+
+    def _on_kb_direction(self, linear, angular):
+        self._on_press()
+        self._on_move(linear, angular)
+
+    def _on_kb_release(self):
+        self._on_release()
+
+    def _on_kb_stop(self):
+        self._on_press()
+        self._on_release()
+        self.node.send_state('IDLE')
+
+    def _on_kb_diagonal(self, direction):
+        mode = self._current_nav_mode()
+        if mode not in DIAGONAL_MODES:
+            return
+
+        lx_sign = 1.0 if direction in ('NW', 'NE') else -1.0
+        ly_sign = 1.0 if direction in ('NW', 'SW') else -1.0
+        az_sign = 1.0 if direction in ('NW', 'SW') else -1.0
+
+        self._on_press()
+
+        if mode in ('OMNI_1', 'OMNI_2'):
+            scale = self.speed_slider.value() / 100.0 * 0.3
+            lx = lx_sign * scale
+            ly = ly_sign * scale
+            self.node.set_target_velocity(lx=lx, ly=ly)
+            self.values_label.setText(f'lx={lx:.2f}  ly={ly:.2f}')
+        elif mode == 'TURN_2':
+            lx = lx_sign * 0.15
+            ly = ly_sign * 0.02
+            az = az_sign * 0.15
+            self.node.set_target_velocity(lx=lx, ly=ly, az=az)
+            self.values_label.setText(f'lx={lx:.2f}  ly={ly:.2f}  az={az:.2f}')
 
     def tick(self):
         rclpy.spin_once(self.node, timeout_sec=0.0)
