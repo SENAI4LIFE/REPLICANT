@@ -46,7 +46,7 @@ slam_toolbox:
     loop_match_minimum_response_fine: 0.45
 
     correlation_search_space_dimension: 1.0
-    correlation_search_space_resolution: 0.01
+    correlation_search_space_resolution: 0.02
     correlation_search_space_smear_deviation: 0.1
 
     loop_search_space_dimension: 8.0
