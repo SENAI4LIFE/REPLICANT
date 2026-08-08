@@ -119,7 +119,7 @@ class TeleopHexapod(Node):
                     self.pose_roll  = 0.0
                     self.pose_pitch = 0.0
                     self._stop_motion()
-                    self._pub_state('NAV_OMNI')
+                    self._pub_state('NAV_OMNI_2')
                     self.get_logger().info('Nav mode: OMNI')
 
                 elif key == 'r':

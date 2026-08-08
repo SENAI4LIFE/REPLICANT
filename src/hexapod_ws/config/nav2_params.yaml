@@ -1,7 +1,7 @@
 amcl:
   ros__parameters:
     use_sim_time: true
-    robot_model_type: "nav2_amcl::DifferentialMotionModel"
+    robot_model_type: "nav2_amcl::OmniMotionModel"
     base_frame_id: "base_link"
     odom_frame_id: "odom"
     global_frame_id: "map"
@@ -64,20 +64,20 @@ controller_server:
       min_vel_y: 0.0
       max_vel_x: 0.15
       max_vel_y: 0.0
-      max_vel_theta: 0.45
+      max_vel_theta: 0.35
       min_speed_xy: 0.0
       max_speed_xy: 0.15
       min_speed_theta: 0.0
       acc_lim_x: 1.0
       acc_lim_y: 1.0
-      acc_lim_theta: 1.5
+      acc_lim_theta: 1.2
       decel_lim_x: -1.0
       decel_lim_y: -1.0
-      decel_lim_theta: -1.5
+      decel_lim_theta: -1.2
       vx_samples: 24
       vy_samples: 1
-      vtheta_samples: 24
-      sim_time: 2.2
+      vtheta_samples: 32
+      sim_time: 2.6
       linear_granularity: 0.05
       angular_granularity: 0.025
       transform_tolerance: 0.3
@@ -86,15 +86,15 @@ controller_server:
       critics: ["Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist", "Twirling", "PreferForward"]
       Oscillation.oscillation_reset_dist: 0.1
       Oscillation.oscillation_reset_angle: 0.3
-      BaseObstacle.scale: 18.0
-      PathAlign.scale: 30.0
-      PathAlign.forward_point_distance: 0.6
+      BaseObstacle.scale: 26.0
+      PathAlign.scale: 28.0
+      PathAlign.forward_point_distance: 0.7
       GoalAlign.scale: 24.0
-      GoalAlign.forward_point_distance: 0.6
-      PathDist.scale: 38.0
+      GoalAlign.forward_point_distance: 0.7
+      PathDist.scale: 32.0
       GoalDist.scale: 24.0
       Twirling.scale: 14.0
-      PreferForward.scale: 10.0
+      PreferForward.scale: 16.0
 
 planner_server:
   ros__parameters:
@@ -103,7 +103,7 @@ planner_server:
     planner_plugins: ["GridBased"]
     GridBased:
       plugin: "nav2_navfn_planner::NavfnPlanner"
-      tolerance: 0.25
+      tolerance: 0.3
       use_astar: true
       allow_unknown: true
 

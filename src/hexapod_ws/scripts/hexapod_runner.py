@@ -62,7 +62,11 @@ STALL_MIN_PROGRESS_M      = 0.03
 STALL_MIN_PROGRESS_RAD    = math.radians(4.0)
 STALL_TICKS_BEFORE_STRAFE = 4
 STRAFE_DURATION_S         = 1.0
+STRAFE_MIN_DURATION_S     = 0.3
 STRAFE_COOLDOWN_S         = 4.0
+
+BLOCKED_TICKS_BEFORE_STRAFE = 15
+STRAFE_DIRECTION_HYSTERESIS_M = 0.05
 
 L1 = 0.0256
 L2 = 0.0900
@@ -511,7 +515,7 @@ class HexapodRunner(Node):
         self.k         = 0
         self.patinha_k = 0
 
-        self.nav_mode = 'TURN_1'
+        self.nav_mode = 'OMNI_1'
 
         self.pose_roll  = 0.0
         self.pose_pitch = 0.0
@@ -552,7 +556,9 @@ class HexapodRunner(Node):
         self.stall_last_xy = None
         self.stall_last_yaw = None
         self.stall_ticks = 0
+        self.danger_block_ticks = 0
         self.strafe_active = False
+        self.strafe_start_time = None
         self.strafe_end_time = None
         self.strafe_resume_state = None
         self.strafe_resume_nav_mode = None
@@ -886,13 +892,15 @@ class HexapodRunner(Node):
             if cmd == 'PATINHA':
                 if self.state == 'PATINHA':
                     self.state = 'IDLE'
-                    self.nav_mode = 'TURN_1'
+                    if not self.manual_active:
+                        self.nav_mode = 'OMNI_1'
                     self.get_logger().info('State → IDLE')
                     return
                 self.patinha_k = 0
             self.state = cmd
             if cmd == 'IDLE':
-                self.nav_mode = 'TURN_1'
+                if not self.manual_active:
+                    self.nav_mode = 'OMNI_1'
                 self.cmd_vel_nav_active = False
                 self.pending_move_state = None
                 self.stop_requested = False
@@ -900,8 +908,12 @@ class HexapodRunner(Node):
                 self.pending_gait_state = None
             self.get_logger().info(f'State → {cmd}')
 
-        elif cmd == 'NAV_OMNI':
-            self.nav_mode = 'OMNI'
+        elif cmd == 'NAV_OMNI_1':
+            self.nav_mode = 'OMNI_1'
+            if self.state in ('POSE', 'REBOLAR', 'PATINHA'):
+                self.state = 'IDLE'
+        elif cmd == 'NAV_OMNI_2':
+            self.nav_mode = 'OMNI_2'
             if self.state in ('POSE', 'REBOLAR', 'PATINHA'):
                 self.state = 'IDLE'
         elif cmd == 'NAV_TURN_2':
@@ -990,7 +1002,20 @@ class HexapodRunner(Node):
                 elif abs(az) > 0.01:
                     target_angle = 180.0 if az < 0 else 0.0
                     target_state = 'TURNING'
+            elif self.nav_mode == 'OMNI_1':
+                if abs(lx) >= abs(ly):
+                    lx_clamped, ly_clamped = lx, 0.0
+                else:
+                    lx_clamped, ly_clamped = 0.0, ly
+                if abs(lx_clamped) > 0.01 or abs(ly_clamped) > 0.01:
+                    target_angle = math.degrees(math.atan2(-ly_clamped, -lx_clamped))
+                    target_state = 'WALKING'
+                elif abs(az) > 0.01:
+                    target_angle = 180.0 if az < 0 else 0.0
+                    target_state = 'TURNING'
             else:
+                # OMNI_2 (unrestricted/full omni, joystick) and any unrecognized
+                # nav_mode fall back to this fully unclamped omnidirectional branch.
                 if abs(lx) > 0.01 or abs(ly) > 0.01:
                     target_angle = math.degrees(math.atan2(-ly, -lx))
                     target_state = 'WALKING'
@@ -1159,27 +1184,102 @@ class HexapodRunner(Node):
 
         return True
 
+    def _is_forward_blocked(self):
+        if self.state == 'WALKING':
+            dist = self.forward_obstacle_dist_m
+        elif self.state == 'TURNING' and self._is_primarily_rotating():
+            dist = self.min_obstacle_dist_m
+        else:
+            dist = None
+        return dist is not None and dist < CLEARANCE_DANGER_M
+
+    def _choose_strafe_direction(self, pose):
+        left_clear, right_clear = self._sample_lateral_clearance()
+        if left_clear is not None and right_clear is not None:
+            if abs(left_clear - right_clear) >= STRAFE_DIRECTION_HYSTERESIS_M:
+                self.strafe_direction = 1.0 if left_clear >= right_clear else -1.0
+            return
+
+        if pose is not None and self.costmap is not None:
+            rx, ry, ryaw = pose
+            probe = ROBOT_RADIUS_M + 0.10
+            lx_world = rx + probe * math.cos(ryaw + math.pi / 2.0)
+            ly_world = ry + probe * math.sin(ryaw + math.pi / 2.0)
+            rx_world = rx + probe * math.cos(ryaw - math.pi / 2.0)
+            ry_world = ry + probe * math.sin(ryaw - math.pi / 2.0)
+            left_cost = self._costmap_cost_at(lx_world, ly_world)
+            right_cost = self._costmap_cost_at(rx_world, ry_world)
+            if left_cost is not None and right_cost is not None:
+                self.strafe_direction = 1.0 if left_cost <= right_cost else -1.0
+                return
+
+        self.strafe_direction = -self.strafe_direction
+
+    def _begin_strafe_escape(self, pose, reason):
+        now = time.monotonic()
+
+        self.stall_ticks = 0
+        self.danger_block_ticks = 0
+
+        self._choose_strafe_direction(pose)
+
+        self.strafe_resume_state = self.state
+        self.strafe_resume_nav_mode = self.nav_mode
+        self.strafe_active = True
+        self.strafe_start_time = now
+        self.strafe_end_time = now + STRAFE_DURATION_S
+
+        if not self.manual_active:
+            self.nav_mode = 'OMNI_1'
+        self.gait_speed = GAIT_SPEED_MIN
+        self.angle_joystick = 90.0 if self.strafe_direction > 0 else -90.0
+        self.angle_joystick_target = self.angle_joystick
+        self.state = 'WALKING'
+        self.pending_move_state = None
+
+        direction_label = 'left' if self.strafe_direction > 0 else 'right'
+        self.get_logger().info(
+            f'Lateral escape triggered ({reason}), strafing {direction_label} to clear obstruction')
+
     def _check_and_apply_strafe_escape(self):
         now = time.monotonic()
 
         if self.strafe_active:
-            if now >= self.strafe_end_time:
+            elapsed = now - (self.strafe_start_time or now)
+            obstacle_cleared = (
+                self.min_obstacle_dist_m is None
+                or self.min_obstacle_dist_m >= CLEARANCE_WARN_M
+            )
+            should_stop = (
+                now >= self.strafe_end_time
+                or self.manual_active
+                or (elapsed >= STRAFE_MIN_DURATION_S and obstacle_cleared)
+            )
+            if should_stop:
                 self.strafe_active = False
                 self.state = self.strafe_resume_state or 'IDLE'
                 if not self.manual_active:
                     self.nav_mode = self.strafe_resume_nav_mode or self.nav_mode
                 self.stall_ticks = 0
+                self.danger_block_ticks = 0
                 self.stall_last_check_time = None
                 self.stall_last_xy = None
                 self.stall_last_yaw = None
                 self.strafe_cooldown_until = now + STRAFE_COOLDOWN_S
             return True
 
+        if self.manual_active:
+            self.stall_ticks = 0
+            self.danger_block_ticks = 0
+            return False
+
         if self.strafe_cooldown_until is not None and now < self.strafe_cooldown_until:
+            self.danger_block_ticks = 0
             return False
 
         if not self.ready or not self.cmd_vel_nav_active:
             self.stall_ticks = 0
+            self.danger_block_ticks = 0
             self.stall_last_check_time = None
             self.stall_last_xy = None
             self.stall_last_yaw = None
@@ -1187,12 +1287,23 @@ class HexapodRunner(Node):
 
         if self.state not in ('WALKING', 'TURNING'):
             self.stall_ticks = 0
+            self.danger_block_ticks = 0
             self.stall_last_check_time = None
             self.stall_last_xy = None
             self.stall_last_yaw = None
             return False
 
+        if self._is_forward_blocked():
+            self.danger_block_ticks += 1
+        else:
+            self.danger_block_ticks = 0
+
         pose = self._costmap_robot_pose()
+
+        if self.danger_block_ticks >= BLOCKED_TICKS_BEFORE_STRAFE:
+            self._begin_strafe_escape(pose, 'path blocked')
+            return True
+
         if pose is None:
             return False
         rx, ry, ryaw = pose
@@ -1228,41 +1339,7 @@ class HexapodRunner(Node):
         if self.stall_ticks < STALL_TICKS_BEFORE_STRAFE:
             return False
 
-        self.stall_ticks = 0
-
-        left_cost = None
-        right_cost = None
-        if self.costmap is not None:
-            probe = ROBOT_RADIUS_M + 0.10
-            lx_world = rx + probe * math.cos(ryaw + math.pi / 2.0)
-            ly_world = ry + probe * math.sin(ryaw + math.pi / 2.0)
-            rx_world = rx + probe * math.cos(ryaw - math.pi / 2.0)
-            ry_world = ry + probe * math.sin(ryaw - math.pi / 2.0)
-            left_cost = self._costmap_cost_at(lx_world, ly_world)
-            right_cost = self._costmap_cost_at(rx_world, ry_world)
-
-        if left_cost is not None and right_cost is not None:
-            self.strafe_direction = 1.0 if left_cost <= right_cost else -1.0
-        else:
-            self.strafe_direction = -self.strafe_direction
-
-        self.strafe_resume_state = self.state
-        self.strafe_resume_nav_mode = self.nav_mode
-        self.strafe_active = True
-        self.strafe_end_time = now + STRAFE_DURATION_S
-
-        if not self.manual_active:
-            self.nav_mode = 'OMNI'
-        self.gait_speed = GAIT_SPEED_MIN
-        self.angle_joystick = 90.0 if self.strafe_direction > 0 else -90.0
-        self.angle_joystick_target = self.angle_joystick
-        self.state = 'WALKING'
-        self.pending_move_state = None
-
-        direction_label = 'left' if self.strafe_direction > 0 else 'right'
-        self.get_logger().info(
-            f'Stall detected while on route, strafing {direction_label} to clear obstruction')
-
+        self._begin_strafe_escape(pose, 'no progress')
         return True
 
     def _is_primarily_rotating(self):
@@ -1373,7 +1450,7 @@ class HexapodRunner(Node):
                 self.stop_requested = False
                 self.state = 'IDLE'
                 if not self.manual_active:
-                    self.nav_mode = 'TURN_1'
+                    self.nav_mode = 'OMNI_1'
                 self.waiting_for_sync = False
                 self.pending_gait_state = None
                 self.pending_gait_angle = 0.0
@@ -1395,7 +1472,7 @@ class HexapodRunner(Node):
                 self.stop_requested = False
                 self.state = 'IDLE'
                 if not self.manual_active:
-                    self.nav_mode = 'TURN_1'
+                    self.nav_mode = 'OMNI_1'
                 self.waiting_for_sync = False
                 self.pending_gait_state = None
                 self.pending_gait_angle = 0.0

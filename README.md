@@ -8,7 +8,7 @@ Hardware repo: https://github.com/Penguin-Lab/tiffany
 - Ubuntu 24.04
 - ROS 2 Jazzy — https://docs.ros.org/en/jazzy/Installation.html
 - Gazebo Sim 8 (ships with `ros-jazzy-ros-gz`)
-- GPU recommended (Gazebo rendering + camera sensor)
+- GPU recommended (Gazebo rendering + camera sensor). Not needed if launching with `camera:=false`.
 
 ## Setup
 Clone the repo:
@@ -36,7 +36,7 @@ source /opt/ros/jazzy/setup.bash && chmod +x src/hexapod_ws/scripts/*.py && colc
 ```bash
 source setup.bash && ros2 launch hexapod_ws main.launch.py
 ```
-`nav2:=true` only if `~/map.yaml` already exists, else defaults to live SLAM mapping. `world:=living_room|obstacle_arena|small_house` (default `living_room`). `rviz:=false` to skip RViz.
+`nav2:=true` only if `~/map.yaml` already exists, else defaults to live SLAM mapping. `world:=living_room|obstacle_arena|small_house` (default `living_room`). `rviz:=false` to skip RViz. `camera:=false` to disable the camera (default `true`). `lidar:=false` to disable the LiDAR (default `true`).
 
 **Terminal 2 — Control** (pick one, each needs `source setup.bash` first)
 
@@ -78,7 +78,7 @@ source setup.bash && ros2 run nav2_map_server map_saver_cli -f ~/map
 2. From then on, plain `main.launch.py` auto-detects `~/map.yaml` and starts in Nav2 mode. Pass `map:=/other/path.yaml` for a different one.
 3. `source setup.bash && ros2 run hexapod_ws nav_goal_gui.py` → **Boot** → click to send a goal (drag to set heading). **Cancel Goal** aborts.
 
-Local costmap uses `/scan` and `/camera/points`.
+Local costmap uses `/scan` and `/camera/points`. Both SLAM and Nav2 require `/scan`, so neither is started when `lidar:=false` (see Lidar below).
 
 ### Continuing a mapping session
 SLAM starts a fresh pose-graph every launch. Save before stopping (use the real home path, not `~`):
@@ -93,10 +93,32 @@ Next launch auto-resumes `~/map_slam.posegraph`. Pass `continue_mapping:=/other/
 ### Lidar
 360 samples over 360°. Raw topic `/scan_bridge` has a mismatched frame ID; use `/scan` (relayed) instead.
 
+Enabled by default. Disable it with `lidar:=false`:
+```bash
+source setup.bash && ros2 launch hexapod_ws main.launch.py lidar:=false
+```
+This removes the LiDAR sensor from the robot and skips its bridge topic. Camera, Gazebo, odometry, and the rest of the simulation are unaffected. SLAM and Nav2 both require `/scan`, so neither is started while `lidar:=false` — a message is logged explaining why.
+
+Combine with other options as usual, e.g. camera-only inspection with no LiDAR or navigation:
+```bash
+source setup.bash && ros2 launch hexapod_ws main.launch.py lidar:=false nav2:=false
+```
+
 ### Camera
 RGBD, 640x480 @ 15Hz, bridged on `/camera/image`, `/camera/depth_image`, `/camera/points`, `/camera/camera_info`.
 
 `/camera/points` is shown directly in RViz as `CameraPointCloud`, with a 5s decay time so recently seen points persist briefly instead of vanishing every frame.
+
+Enabled by default. Disable it with `camera:=false`:
+```bash
+source setup.bash && ros2 launch hexapod_ws main.launch.py camera:=false
+```
+This removes the camera sensor from the robot, skips its bridge topics, and stops point-cloud processing. LiDAR, SLAM, Nav2, and odometry are unaffected — the local costmap simply falls back to `/scan` only, since `/camera/points` is no longer published.
+
+Combine with other options as usual, e.g. mapping with no camera:
+```bash
+source setup.bash && ros2 launch hexapod_ws main.launch.py camera:=false nav2:=false
+```
 
 ---
 

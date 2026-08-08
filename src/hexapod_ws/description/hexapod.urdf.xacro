@@ -1,6 +1,9 @@
 <?xml version="1.0"?>
 <robot name="tiffany" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
+  <xacro:arg name="camera" default="true"/>
+  <xacro:arg name="lidar" default="true"/>
+
   <xacro:property name="pkg"          value="hexapod_ws"/>
   <xacro:property name="effort"       value="10"/>
   <xacro:property name="velocity"     value="10"/>
@@ -224,101 +227,105 @@
   </gazebo>
 
 
-  <link name="lidar">
-    <inertial>
-      <mass value="0.001"/>
-      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
-    </inertial>
-  </link>
+  <xacro:if value="$(arg lidar)">
+    <link name="lidar">
+      <inertial>
+        <mass value="0.001"/>
+        <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+      </inertial>
+    </link>
 
-  <joint name="lidar_joint" type="fixed">
-    <parent link="base_link"/>
-    <child  link="lidar"/>
-    <origin xyz="-0.03674 0.000649 0.15325" rpy="0 0 0"/>
-  </joint>
+    <joint name="lidar_joint" type="fixed">
+      <parent link="base_link"/>
+      <child  link="lidar"/>
+      <origin xyz="-0.03674 0.000649 0.15325" rpy="0 0 0"/>
+    </joint>
 
-  <gazebo reference="lidar">
-    <sensor name="lidar" type="gpu_lidar">
-      <update_rate>15</update_rate>
-      <topic>/scan</topic>
-      <gz_frame_id>lidar</gz_frame_id>
-      <lidar>
-        <scan>
-          <horizontal>
-            <samples>360</samples>
-            <resolution>1</resolution>
-            <min_angle>-3.14159265</min_angle>
-            <max_angle>3.14159265</max_angle>
-          </horizontal>
-          <vertical>
-            <samples>1</samples>
-            <resolution>1</resolution>
-            <min_angle>0</min_angle>
-            <max_angle>0</max_angle>
-          </vertical>
-        </scan>
-        <range>
-          <min>0.10</min>
-          <max>12.0</max>
-          <resolution>0.01</resolution>
-        </range>
-        <noise>
-          <type>gaussian</type>
-          <mean>0.0</mean>
-          <stddev>0.004</stddev>
-        </noise>
-      </lidar>
-      <always_on>true</always_on>
-      <visualize>true</visualize>
-    </sensor>
-  </gazebo>
+    <gazebo reference="lidar">
+      <sensor name="lidar" type="gpu_lidar">
+        <update_rate>15</update_rate>
+        <topic>/scan</topic>
+        <gz_frame_id>lidar</gz_frame_id>
+        <lidar>
+          <scan>
+            <horizontal>
+              <samples>360</samples>
+              <resolution>1</resolution>
+              <min_angle>-3.14159265</min_angle>
+              <max_angle>3.14159265</max_angle>
+            </horizontal>
+            <vertical>
+              <samples>1</samples>
+              <resolution>1</resolution>
+              <min_angle>0</min_angle>
+              <max_angle>0</max_angle>
+            </vertical>
+          </scan>
+          <range>
+            <min>0.10</min>
+            <max>12.0</max>
+            <resolution>0.01</resolution>
+          </range>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.004</stddev>
+          </noise>
+        </lidar>
+        <always_on>true</always_on>
+        <visualize>true</visualize>
+      </sensor>
+    </gazebo>
+  </xacro:if>
 
 
-  <link name="camera">
-    <inertial>
-      <mass value="0.001"/>
-      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
-    </inertial>
-  </link>
+  <xacro:if value="$(arg camera)">
+    <link name="camera">
+      <inertial>
+        <mass value="0.001"/>
+        <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+      </inertial>
+    </link>
 
-  <joint name="camera_joint" type="fixed">
-    <parent link="base_link"/>
-    <child  link="camera"/>
-    <origin xyz="0.059842 -0.000288 0.11141" rpy="-0.00418892 0 0.00038394"/>
-  </joint>  
+    <joint name="camera_joint" type="fixed">
+      <parent link="base_link"/>
+      <child  link="camera"/>
+      <origin xyz="0.059842 -0.000288 0.11141" rpy="-0.00418892 0 0.00038394"/>
+    </joint>
 
-  <gazebo reference="camera">
-    <sensor name="camera" type="rgbd_camera">
-      <update_rate>15</update_rate>
-      <topic>camera</topic>
-      <gz_frame_id>camera</gz_frame_id>
-      <camera>
-        <horizontal_fov>1.3962634</horizontal_fov>
-        <image>
-          <width>320</width>
-          <height>240</height>
-          <format>R8G8B8</format>
-        </image>
-        <clip>
-          <near>0.02</near>
-          <far>50</far>
-        </clip>
-        <depth_camera>
+    <gazebo reference="camera">
+      <sensor name="camera" type="rgbd_camera">
+        <update_rate>15</update_rate>
+        <topic>camera</topic>
+        <gz_frame_id>camera</gz_frame_id>
+        <camera>
+          <horizontal_fov>1.3962634</horizontal_fov>
+          <image>
+            <width>320</width>
+            <height>240</height>
+            <format>R8G8B8</format>
+          </image>
           <clip>
-            <near>0.1</near>
-            <far>10.0</far>
+            <near>0.02</near>
+            <far>50</far>
           </clip>
-        </depth_camera>
-        <noise>
-          <type>gaussian</type>
-          <mean>0.0</mean>
-          <stddev>0.0025</stddev>
-        </noise>
-      </camera>
-      <always_on>true</always_on>
-      <visualize>false</visualize>
-    </sensor>
-  </gazebo>
+          <depth_camera>
+            <clip>
+              <near>0.1</near>
+              <far>10.0</far>
+            </clip>
+          </depth_camera>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.0025</stddev>
+          </noise>
+        </camera>
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+      </sensor>
+    </gazebo>
+  </xacro:if>
 
 
 

@@ -25,6 +25,8 @@ def generate_launch_description():
 
     urdf_path = os.path.join(pkg_share, 'description', 'hexapod.urdf.xacro')
     bridge_config = os.path.join(pkg_share, 'config', 'bridge.yaml')
+    camera_bridge_config = os.path.join(pkg_share, 'config', 'bridge_camera.yaml')
+    lidar_bridge_config = os.path.join(pkg_share, 'config', 'bridge_lidar.yaml')
     params_file = os.path.join(pkg_share, 'config', 'parameters.yaml')
     slam_params = os.path.join(pkg_share, 'config', 'slam_params.yaml')
     nav2_params = os.path.join(pkg_share, 'config', 'nav2_params.yaml')
@@ -36,6 +38,28 @@ def generate_launch_description():
         default_value='true',
         description='Launch RViz2 alongside the simulation',
     )
+
+    camera_arg = DeclareLaunchArgument(
+        'camera',
+        default_value='true',
+        description=(
+            'Enable the RGBD camera sensor, its bridge topics and point-cloud '
+            'processing. LiDAR, SLAM, Nav2 and odometry work normally either way.'
+        ),
+    )
+    is_camera = IfCondition(LaunchConfiguration('camera'))
+
+    lidar_arg = DeclareLaunchArgument(
+        'lidar',
+        default_value='true',
+        description=(
+            'Enable the LiDAR sensor and its bridge/topics. Camera, Gazebo, '
+            'odometry and the rest of the simulation work normally either way. '
+            'SLAM and Nav2 both require /scan, so neither is started when '
+            'lidar:=false.'
+        ),
+    )
+    is_lidar = IfCondition(LaunchConfiguration('lidar'))
 
     home_dir = os.path.expanduser('~')
     default_map_yaml = os.path.join(home_dir, 'map.yaml')
@@ -101,8 +125,27 @@ def generate_launch_description():
         PythonExpression(["'", LaunchConfiguration('continue_mapping'), "' != ''"])
     )
 
-    is_nav2 = IfCondition(LaunchConfiguration('nav2'))
-    is_not_nav2 = UnlessCondition(LaunchConfiguration('nav2'))
+    is_nav2 = IfCondition(
+        PythonExpression([
+            "'", LaunchConfiguration('nav2'), "' == 'true' and '",
+            LaunchConfiguration('lidar'), "' == 'true'",
+        ])
+    )
+    is_not_nav2 = IfCondition(
+        PythonExpression([
+            "'", LaunchConfiguration('nav2'), "' != 'true' and '",
+            LaunchConfiguration('lidar'), "' == 'true'",
+        ])
+    )
+
+    warn_lidar_disabled = LogInfo(
+        msg=(
+            '[launch] lidar:=false — /scan is unavailable, so SLAM and Nav2 will '
+            'not be started. Camera, Gazebo, odometry and the rest of the '
+            'simulation still run normally.'
+        ),
+        condition=UnlessCondition(LaunchConfiguration('lidar')),
+    )
 
     nav2_missing_map = IfCondition(
         PythonExpression([
@@ -136,7 +179,12 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             'robot_description': ParameterValue(
-                Command(['xacro ', urdf_path]), value_type=str
+                Command([
+                    'xacro ', urdf_path,
+                    ' camera:=', LaunchConfiguration('camera'),
+                    ' lidar:=', LaunchConfiguration('lidar'),
+                ]),
+                value_type=str,
             ),
             'use_sim_time': True,
             'publish_frequency': 50.0,
@@ -188,6 +236,22 @@ def generate_launch_description():
         executable='parameter_bridge',
         arguments=['--ros-args', '-p', f'config_file:={bridge_config}'],
         output='screen',
+    )
+
+    camera_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        arguments=['--ros-args', '-p', f'config_file:={camera_bridge_config}'],
+        output='screen',
+        condition=is_camera,
+    )
+
+    lidar_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        arguments=['--ros-args', '-p', f'config_file:={lidar_bridge_config}'],
+        output='screen',
+        condition=is_lidar,
     )
 
     rviz = Node(
@@ -512,6 +576,8 @@ def generate_launch_description():
 
     return LaunchDescription([
         rviz_arg,
+        camera_arg,
+        lidar_arg,
         world_arg,
         saved_map_arg,
         nav2_arg,
@@ -522,8 +588,11 @@ def generate_launch_description():
         gazebo_server,
         spawn_robot,
         bridge,
+        camera_bridge,
+        lidar_bridge,
         rviz,
         warn_nav2_no_map,
+        warn_lidar_disabled,
 
         saved_map_server,
         saved_map_configure_after_start,

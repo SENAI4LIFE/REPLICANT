@@ -98,7 +98,7 @@ Visualization Manager:
       Class: rviz_default_plugins/PointCloud2
       Color: 255; 255; 255
       Color Transformer: RGB8
-      Decay Time: 5
+      Decay Time: 2
       Enabled: true
       Name: CameraPointCloud
       Position Transformer: XYZ

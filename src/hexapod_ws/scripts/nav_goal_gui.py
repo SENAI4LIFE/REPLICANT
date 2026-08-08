@@ -365,7 +365,7 @@ class NavGoalNode(Node):
         self.last_goal_yaw = 0.0
 
         self.last_hexapod_state = None
-        self.last_nav_mode = 'TURN_1'
+        self.last_nav_mode = 'OMNI_1'
         self.manual_active = False
         self.lateral_opt_active = False
         self._recovery_active = False
@@ -373,7 +373,7 @@ class NavGoalNode(Node):
         self._spin_near_goal_start_dist = None
         self._final_strafe_active = False
         self._final_strafe_end_time = None
-        self._final_strafe_prev_nav_mode = 'TURN_1'
+        self._final_strafe_prev_nav_mode = 'OMNI_1'
 
         self.create_timer(0.1, self._final_approach_check)
 
@@ -505,7 +505,7 @@ class NavGoalNode(Node):
         self.nav_active = False
 
         self._final_strafe_prev_nav_mode = self.last_nav_mode or 'TURN_1'
-        self.send_state('NAV_OMNI')
+        self.send_state('NAV_OMNI_1')
         self._final_strafe_active = True
         self._final_strafe_end_time = time.monotonic() + FINAL_APPROACH_MAX_TIME_S
         self._refresh_lateral_opt()
@@ -657,6 +657,9 @@ class NavGoalNode(Node):
             return
 
         self._emit_status('sending', f'Sending goal ({x:.2f}, {y:.2f})')
+
+        if not self.manual_active:
+            self.send_state('NAV_OMNI_1')
 
         self.nav_active = True
         self.nav_start_time = time.monotonic()

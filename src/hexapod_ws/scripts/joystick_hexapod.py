@@ -26,7 +26,8 @@ from PyQt5.QtWidgets import (
 POSE_MAX = 15.0
 
 NAV_MODE_LABELS = {
-    'OMNI': 'Omni',
+    'OMNI_1': 'Omni 1',
+    'OMNI_2': 'Omni 2',
     'TURN_1': 'Turn 1',
     'TURN_2': 'Turn 2',
 }
@@ -122,7 +123,7 @@ class JoystickNode(Node):
             String, '/tiffany/state_feedback', self._feedback_cb, 10)
         self.nav2_status_sub = self.create_subscription(
             String, '/tiffany/nav2_status', self._nav2_status_cb, 10)
-        self.nav_mode = 'OMNI'
+        self.nav_mode = 'OMNI_2'
         self.confirmed_nav_mode = None
         self.robot_ready = False
         self.nav2_status = None
@@ -138,7 +139,7 @@ class JoystickNode(Node):
         except (json.JSONDecodeError, TypeError):
             return
         mode = data.get('nav_mode')
-        if mode in ('OMNI', 'TURN_1', 'TURN_2'):
+        if mode in ('OMNI_1', 'OMNI_2', 'TURN_1', 'TURN_2'):
             self.confirmed_nav_mode = mode
         self.robot_ready = bool(data.get('ready', False))
         if self.on_feedback:
@@ -231,7 +232,8 @@ class JoystickWindow(QMainWindow):
         nav_row.addWidget(QLabel('Nav mode:'))
         self.nav_buttons = {}
         for mode, label in (
-            ('OMNI', 'Omni'),
+            ('OMNI_1', 'Omni 1'),
+            ('OMNI_2', 'Omni 2'),
             ('TURN_1', 'Turn 1'),
             ('TURN_2', 'Turn 2'),
         ):
@@ -240,7 +242,7 @@ class JoystickWindow(QMainWindow):
             btn.clicked.connect(lambda _checked, m=mode: self._set_nav_mode(m))
             nav_row.addWidget(btn)
             self.nav_buttons[mode] = btn
-        self.nav_buttons['OMNI'].setChecked(True)
+        self.nav_buttons['OMNI_2'].setChecked(True)
         layout.addLayout(nav_row)
 
         speed_row = QHBoxLayout()
@@ -356,13 +358,9 @@ class JoystickWindow(QMainWindow):
         angular_scale = self.speed_slider.value() / 100.0 * 2.0
 
         mode = self.node.confirmed_nav_mode or self.node.nav_mode
-        if mode == 'OMNI':
+        if mode in ('OMNI_1', 'OMNI_2'):
             lx = linear * scale
             ly = angular * scale
-            if abs(lx) >= abs(ly):
-                ly = 0.0
-            else:
-                lx = 0.0
             self.node.set_target_velocity(lx=lx, ly=ly)
             self.values_label.setText(f'lx={lx:.2f}  ly={ly:.2f}')
         elif mode == 'TURN_1':
@@ -370,6 +368,12 @@ class JoystickWindow(QMainWindow):
             az = angular * angular_scale
             self.node.set_target_velocity(lx=lx, az=az)
             self.values_label.setText(f'lx={lx:.2f}  az={az:.2f}')
+        elif mode == 'TURN_2':
+            lx = linear * scale
+            ly = angular * scale
+            az = angular * angular_scale
+            self.node.set_target_velocity(lx=lx, ly=ly, az=az)
+            self.values_label.setText(f'lx={lx:.2f}  ly={ly:.2f}  az={az:.2f}')
         else:
             lx = linear * scale
             az = angular * angular_scale
