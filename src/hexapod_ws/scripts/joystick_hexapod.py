@@ -53,6 +53,7 @@ ROBOT_STATE_COLORS = {
 CONTROL_SOURCE_COLORS = {
     'Manual': '#F59E0B',
     'Nav2': '#3B82F6',
+    'SLAM': '#22C55E',
 }
 
 NAV2_STATUS_COLORS = {
@@ -492,6 +493,55 @@ class JoystickWindow(QMainWindow):
         self.node.on_feedback = self._on_feedback
         self.node.on_nav2_status = self._on_nav2_status
         self._refresh_status()
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setFocus()
+
+    def keyPressEvent(self, event):
+        if event.isAutoRepeat():
+            return
+        key = event.key()
+        directions = {
+            Qt.Key_W: (1.0, 0.0),
+            Qt.Key_S: (-1.0, 0.0),
+            Qt.Key_A: (0.0, 1.0),
+            Qt.Key_D: (0.0, -1.0),
+        }
+        diagonals = {
+            Qt.Key_Q: 'NW',
+            Qt.Key_E: 'NE',
+            Qt.Key_Z: 'SW',
+            Qt.Key_C: 'SE',
+        }
+        if key in directions:
+            self._on_kb_direction(*directions[key])
+            event.accept()
+            return
+        if key in diagonals:
+            self._on_kb_diagonal(diagonals[key])
+            event.accept()
+            return
+        if key == Qt.Key_Space:
+            self._on_kb_stop()
+            event.accept()
+            return
+        if key == Qt.Key_B:
+            self._on_balance()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+    def keyReleaseEvent(self, event):
+        if event.isAutoRepeat():
+            return
+        if event.key() in (
+            Qt.Key_W, Qt.Key_S, Qt.Key_A, Qt.Key_D,
+            Qt.Key_Q, Qt.Key_E, Qt.Key_Z, Qt.Key_C,
+            Qt.Key_Space,
+        ):
+            self._on_kb_release()
+            event.accept()
+            return
+        super().keyReleaseEvent(event)
 
     def _on_boot(self):
         self.node.send_velocity(0.0, 0.0, 0.0)
@@ -534,6 +584,8 @@ class JoystickWindow(QMainWindow):
         self.safe_mode = not self.safe_mode
         self.node.set_safe_mode(self.safe_mode)
         self.safe_btn.setText(f'Safe Mode: {"ON" if self.safe_mode else "OFF"}')
+        if not self.safe_mode:
+            self.node.send_state('SAFE_OFF')
         self._refresh_status()
 
     def _on_press(self):
@@ -549,8 +601,15 @@ class JoystickWindow(QMainWindow):
 
     def _refresh_status(self):
         robot_state = 'Booted' if self.node.robot_ready else 'Shutdown'
-        mode = self.node.confirmed_nav_mode or self.node.nav_mode
-        control_source = 'Manual' if self.manual_active else 'Nav2'
+        if not self.node.robot_ready:
+            self.safe_mode = False
+        mode = (self.node.confirmed_nav_mode or self.node.nav_mode) if self.node.robot_ready else None
+        if self.manual_active:
+            control_source = 'Manual'
+        elif self.node.nav2_status in ('sending', 'navigating'):
+            control_source = 'Nav2'
+        else:
+            control_source = 'Idle'
         nav2_key = self.node.nav2_status
         nav2_status = NAV2_STATUS_LABELS.get(nav2_key, 'Idle')
 
@@ -559,7 +618,7 @@ class JoystickWindow(QMainWindow):
             _badge_style(ROBOT_STATE_COLORS.get(robot_state, '#374151')))
 
         self.status_labels['nav_mode'].setText(
-            f'Mode: {NAV_MODE_LABELS.get(mode, mode)}')
+            f'Mode: {NAV_MODE_LABELS.get(mode, "OFF") if mode is not None else "OFF"}')
         self.status_labels['nav_mode'].setStyleSheet(_badge_style('#3B82F6'))
 
         self.status_labels['control_source'].setText(f'Control: {control_source}')
@@ -640,8 +699,12 @@ class JoystickWindow(QMainWindow):
         self._on_release()
 
     def _on_kb_stop(self):
-        self._on_press()
-        self._on_release()
+        self.node.send_velocity(0.0, 0.0, 0.0)
+        self.node.send_state('IDLE')
+        self.manual_active = False
+        self.node.set_manual_active(False)
+        self._refresh_status()
+        self.values_label.setText('lx=0.00  ly=0.00  az=0.00')
         self.node.send_state('IDLE')
 
     def _on_kb_diagonal(self, direction):
@@ -670,7 +733,7 @@ class JoystickWindow(QMainWindow):
 
     def tick(self):
         rclpy.spin_once(self.node, timeout_sec=0.0)
-        if not self.pose_mode:
+        if self.manual_active and not self.pose_mode:
             self.node.publish_velocity()
 
 

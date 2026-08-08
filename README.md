@@ -159,30 +159,6 @@ See [Installation](#installation) and [Usage](#usage) for full details, and [Wor
 
 ---
 
-## Installation
-
-### 1. Add the ROS 2 apt repository (skip if already configured)
-
-```bash
-sudo apt install -y curl && sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
-```
-
-### 2. Install ROS 2 Jazzy, Gazebo, and project dependencies
-
-```bash
-sudo apt update
-sudo apt install -y ros-jazzy-desktop ros-jazzy-ros-gz ros-jazzy-gz-ros2-control ros-jazzy-ros2-control \
-  ros-jazzy-ros2-controllers ros-jazzy-robot-state-publisher ros-jazzy-xacro ros-jazzy-rviz2 \
-  ros-jazzy-slam-toolbox ros-jazzy-navigation2 python3-colcon-common-extensions python3-pyqt5 \
-  python3-catkin-pkg python3-lark python3-empy python3-jinja2 python3-yaml python3-typeguard
-```
-
-### 3. Clone the repository
-
-```bash
-git clone https://github.com/SENAI4LIFE/tiffany_gazebo.git && cd tiffany_gazebo
-```
-
 ## Build
 
 ```bash
