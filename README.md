@@ -302,7 +302,6 @@ SLAM starts a fresh pose-graph every launch by default. Save the graph before st
 ```bash
 source setup.bash && ros2 service call /slam_toolbox/serialize_map slam_toolbox/srv/SerializePoseGraph "{filename: '/home/you/map_slam'}"
 ```
-The next launch auto-resumes from `~/map_slam.posegraph` if present. Pass `continue_mapping:=/other/base/path` to resume a different graph.
 
 ### Saving the final map
 
@@ -468,7 +467,6 @@ tiffany_gazebo/
 | `config/nav2_params.yaml` | `amcl` (omni motion model), `controller_server` (`RotationShimController` wrapping `DWBLocalPlanner`, tuned to the robot's ~0.15 m/s gait speed), `planner_server` (NavFn/A*), `behavior_server` (spin/backup/wait), `bt_navigator`, `waypoint_follower`, and both global/local costmaps (LiDAR + point-cloud obstacle layers, inflation) |
 | `description/hexapod.urdf.xacro` | Robot links/joints, `ros2_control` joint interfaces, IMU/LiDAR/camera sensor definitions, `gz_ros2_control` and `OdometryPublisher` Gazebo plugins |
 
-Launch arguments (all set via `main.launch.py <arg>:=<value>`): `rviz`, `camera`, `lidar`, `world`, `saved_map`, `nav2`, `map`, `continue_mapping` — see [Usage](#usage), [Worlds](#worlds), and [SLAM](#slam-mapping)/[Navigation](#autonomous-navigation-nav2) above for what each controls.
 
 ## Detailed Implementation
 
