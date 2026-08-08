@@ -295,7 +295,7 @@ class JoystickWindow(QMainWindow):
         self.pose_mode = False
         self.manual_active = False
         self.safe_mode = False
-        self.setWindowTitle('Tiffany Virtual Joystick')
+        self.setWindowTitle('Virtual Joystick')
         self.setStyleSheet('QMainWindow {background-color: #202020;} '
                             'QLabel {color: #E5E5E5;} '
                             'QGroupBox {color: #B8B8B8; font-weight: bold; '

@@ -854,7 +854,7 @@ class NavGoalWindow(QMainWindow):
     def __init__(self, node):
         super().__init__()
         self.node = node
-        self.setWindowTitle('Tiffany Nav2 Destination')
+        self.setWindowTitle('Nav2 Destination')
         self.setStyleSheet('QMainWindow {background-color: #202020;} '
                            'QLabel {color: #E5E5E5;} '
                            'QGroupBox {color: #B8B8B8; font-weight: bold; '
