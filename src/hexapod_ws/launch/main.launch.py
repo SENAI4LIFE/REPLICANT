@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from world_poses import resolve_pose, as_float_param
 from launch import LaunchDescription
 from launch.actions import (
     IncludeLaunchDescription,
@@ -85,8 +88,35 @@ def generate_launch_description():
 
     world_arg = DeclareLaunchArgument(
         'world',
-        default_value='obstacle_arena',
+        default_value='small_house',
         description="World to load: 'living_room' (default), 'obstacle_arena', or 'small_house'",
+    )
+
+    spawn_x_arg = DeclareLaunchArgument(
+        'spawn_x',
+        default_value='',
+        description=(
+            'Override the robot spawn/AMCL initial X. Leave empty to use the '
+            'per-world default (living_room=0.0, obstacle_arena=0.0, small_house=0.0).'
+        ),
+    )
+
+    spawn_y_arg = DeclareLaunchArgument(
+        'spawn_y',
+        default_value='',
+        description=(
+            'Override the robot spawn/AMCL initial Y. Leave empty to use the '
+            'per-world default (living_room=1.5, obstacle_arena=0.0, small_house=0.0).'
+        ),
+    )
+
+    spawn_yaw_arg = DeclareLaunchArgument(
+        'spawn_yaw',
+        default_value='',
+        description=(
+            'Override the robot spawn/AMCL initial yaw. Leave empty to use the '
+            'per-world default (0.0 for every world).'
+        ),
     )
 
     auto_nav2 = 'true' if os.path.isfile(default_map_yaml) else 'false'
@@ -214,9 +244,15 @@ def generate_launch_description():
         }.items(),
     )
 
-    spawn_y = PythonExpression([
-        "'0.0' if '", LaunchConfiguration('world'), "' == 'obstacle_arena' else '1.5'"
-    ])
+    robot_pose = resolve_pose(
+        world_arg_name='world',
+        x_override_arg_name='spawn_x',
+        y_override_arg_name='spawn_y',
+        yaw_override_arg_name='spawn_yaw',
+    )
+    spawn_x = robot_pose['x']
+    spawn_y = robot_pose['y']
+    spawn_yaw = robot_pose['yaw']
 
     spawn_robot = Node(
         package='ros_gz_sim',
@@ -224,8 +260,9 @@ def generate_launch_description():
         arguments=[
             '-topic', 'robot_description',
             '-name', 'tiffany',
-            '-x', '0',
+            '-x', spawn_x,
             '-y', spawn_y,
+            '-Y', spawn_yaw,
             '-z', '0.35',
         ],
         output='screen',
@@ -417,7 +454,13 @@ def generate_launch_description():
             'ros2 service call /slam_toolbox/deserialize_map '
             'slam_toolbox/srv/DeserializePoseGraph "{filename: \'',
             LaunchConfiguration('continue_mapping'),
-            '\', match_type: 1, initial_pose: {x: 0.0, y: 1.5, theta: 0.0}}"',
+            '\', match_type: 1, initial_pose: {x: ',
+            spawn_x,
+            ', y: ',
+            spawn_y,
+            ', theta: ',
+            spawn_yaw,
+            '}}"',
         ]],
         output='screen',
         condition=has_continue_mapping,
@@ -463,7 +506,12 @@ def generate_launch_description():
         executable='amcl',
         name='amcl',
         output='screen',
-        parameters=[nav2_params],
+        parameters=[nav2_params, {
+            'initial_pose.x': as_float_param(spawn_x),
+            'initial_pose.y': as_float_param(spawn_y),
+            'initial_pose.z': 0.0,
+            'initial_pose.yaw': as_float_param(spawn_yaw),
+        }],
     )
 
     nav2_controller = Node(
@@ -579,6 +627,9 @@ def generate_launch_description():
         camera_arg,
         lidar_arg,
         world_arg,
+        spawn_x_arg,
+        spawn_y_arg,
+        spawn_yaw_arg,
         saved_map_arg,
         nav2_arg,
         map_arg,

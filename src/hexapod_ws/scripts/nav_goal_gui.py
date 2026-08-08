@@ -253,7 +253,7 @@ class MapCanvas(QWidget):
 
         w, h = self.width(), self.height()
         iw, ih = self.image.width(), self.image.height()
-        scale = min(w / iw, h / ih)
+        scale = min(w / ih, h / iw)
         dw, dh = iw * scale, ih * scale
         dx, dy = (w - dw) / 2.0, (h - dh) / 2.0
         self.draw_rect = (dx, dy, dw, dh)
@@ -280,10 +280,12 @@ class MapCanvas(QWidget):
             x, y, yaw = self.robot_pose
             center = self._world_to_widget(x, y)
             if center is not None:
+                icon_px = 8
                 if self.draw_rect is not None and self.image is not None:
                     _, _, rw, _ = self.draw_rect
                     px_per_m = (rw / self.image.width()) / self.resolution
                     clearance_px = max(2, int(round(ROBOT_RADIUS_M * px_per_m)))
+                    icon_px = max(3, int(round(ROBOT_RADIUS_M * 0.5 * px_per_m)))
                     clearance_color = self._clearance_color()
                     fill = QColor(clearance_color)
                     fill.setAlpha(60)
@@ -295,7 +297,7 @@ class MapCanvas(QWidget):
                     x + 0.3 * math.cos(yaw), y + 0.3 * math.sin(yaw))
                 painter.setBrush(QBrush(QColor(60, 140, 255)))
                 painter.setPen(QPen(QColor(220, 235, 255), 2))
-                painter.drawEllipse(center, 8, 8)
+                painter.drawEllipse(center, icon_px, icon_px)
                 if tip is not None:
                     painter.drawLine(center, tip)
 

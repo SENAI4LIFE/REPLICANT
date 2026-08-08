@@ -261,7 +261,7 @@
 
     <model name="cylinder_wide">
       <static>true</static>
-      <pose>3.5 -1.0 0.2 0 0 0</pose>
+      <pose>3.5 -1 0.2 0 0 0</pose>
       <link name="link">
         <collision name="collision">
           <geometry><cylinder><radius>0.35</radius><length>0.4</length></cylinder></geometry>
@@ -312,7 +312,7 @@
 
     <model name="sphere_large">
       <static>true</static>
-      <pose>-3.5 -2.0 0.3 0 0 0</pose>
+      <pose>-3.5 -2 0.3 0 0 0</pose>
       <link name="link">
         <collision name="collision">
           <geometry><sphere><radius>0.3</radius></sphere></geometry>
