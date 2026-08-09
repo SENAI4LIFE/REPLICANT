@@ -56,7 +56,7 @@ This repository simulates Tiffany, a 6-legged (hexapod) robot, in Gazebo and dri
 <p align="center">
   <img src="images/penguim.png" width="60%"/>
 </p>
-<p align="center"><em>Provenance: <a href="https://github.com/SENAI4LIFE/tiffany_pybullet">SENAI4LIFE/tiffany_pybullet</a>, the testbed where Tiffany's first gait algorithms and logic were developed.</em></p>
+<p align="center"><em>Provenance: <a href="https://github.com/SENAI4LIFE/tiffany_pybullet">SENAI4LIFE/tiffany_pybullet</a>, where Tiffany's existing hardware gait algorithms and logic were converted to Python and developed against the 3D model, including testing of geometric and kinematic references. This implementation served as a basis for the later Gazebo/ROS 2 work, where the code and control architecture were substantially adapted and extended for the simulated robot, ROS 2 interfaces, and Gazebo topics.</em></p>
 
 ### What the robot can do
 
