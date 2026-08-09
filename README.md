@@ -274,7 +274,8 @@ A status row shows robot state, confirmed nav mode (echoed back from the robot's
 
 ### Nav2 goal picker (`nav_goal_gui.py`)
 
-Boot the robot from the GUI, then click and drag on the map to send a goal with a heading (drag sets the direction the robot should end up facing). **Cancel Goal** aborts the active goal. The map view shows the live SLAM/Nav2 map, the saved-map overlay (if any), the local costmap-derived clearance color, the planned path, and the robot's current state, all colour-coded. See [System Architecture](#system-architecture) for what the GUI does automatically while a goal is active (lateral optimization, final-approach correction, stuck-goal recovery).
+Boot the robot from the GUI, then click on the map to send a goal. **Cancel Goal** aborts the active goal. The map view shows the live SLAM/Nav2 map, the saved-map overlay (if any), the local costmap-derived clearance color, the planned path, and the robot's current state, all colour-coded. See [System Architecture](#system-architecture) for what the GUI does automatically while a goal is active (lateral optimization, final-approach correction, stuck-goal recovery).
+
 
 <p align="center">
   <img src="images/nav_goal_gui.png" width="50%"/>
