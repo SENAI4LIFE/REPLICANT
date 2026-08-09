@@ -88,7 +88,7 @@ def generate_launch_description():
 
     world_arg = DeclareLaunchArgument(
         'world',
-        default_value='small_house',
+        default_value='living_room',
         description="World to load: 'living_room' (default), 'obstacle_arena', or 'small_house'",
     )
 
