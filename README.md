@@ -15,7 +15,7 @@ Hardware repo: https://github.com/Penguin-Lab/tiffany
 <p align="center">
   <video src="images/menace.gif" width="80%" controls></video>
 </p>
-<p align="center"><a href="images/menace.mp4">▶ menace.mp4</a></p>
+<p align="center"><a href="images/menace.gif">▶ menace.gif</a></p>
 
 ---
 
