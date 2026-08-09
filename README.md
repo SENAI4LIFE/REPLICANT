@@ -12,7 +12,7 @@ Hardware repo: https://github.com/Penguin-Lab/tiffany
 
 <!-- Gallery placeholder: screenshots/GIFs of Tiffany walking, RViz, and Gazebo go here -->
 <p align="center">
-  <img src="images/tiffany_hero.gif" width="80%" alt="Tiffany hexapod demo (placeholder)"/>
+  <img src="images/menace.gif" width="80%" alt="Tiffany hexapod demo (placeholder)"/>
 </p>
 
 ---
@@ -116,11 +116,17 @@ This repository simulates Tiffany, a 6-legged (hexapod) robot, in Gazebo and dri
 <p align="center">
   <img src="images/topview_tiffany_onshape.png" width="45%"/>
 </p>
+<p align="center">
+  <img src="images/deep_learning.png" width="30%"/>
+  <img src="images/overfitting.png" width="30%"/>
+  <img src="images/reinforcement_learning.png" width="30%"/>
+</p>
 
 ## Video Demonstrations
 
-<!-- Add demo video links/embeds here once recorded. -->
-*(Video walkthroughs of SLAM mapping and Nav2 navigation to be added.)*
+<p align="center">
+  <video src="images/laboratoriya.mp4" controls width="720"></video>
+</p>
 
 ---
 
