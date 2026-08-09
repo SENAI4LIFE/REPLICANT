@@ -104,14 +104,14 @@ This repository simulates Tiffany, a 6-legged (hexapod) robot, in Gazebo and dri
 
 ## Gallery
 
-<!-- Add screenshots here, e.g.: -->
-<!--
 <p align="center">
-  <img src="images/gazebo_view.png" width="45%"/>
-  <img src="images/rviz_view.png" width="45%"/>
+  <img src="images/isoview1_tiffany_onshape.png.png" width="45%"/>
+  <img src="images/isoview2_tiffany_onshape.png.png" width="45%"/>
 </p>
--->
-*(Images to be added.)*
+<p align="center">
+  <img src="images/topview_tiffany_onshape.png" width="45%"/>
+  <img src="images/hexapod_pybullet.png" width="45%"/>
+</p>
 
 ## Video Demonstrations
 
@@ -232,9 +232,17 @@ Drag the pad to move, release to stop. Buttons for Boot, Shutdown, Pose mode, an
 
 A status row shows robot state, confirmed nav mode (echoed back from the robot's own state feedback), control source (Manual while the pad is held, Nav2 otherwise), Safe Mode, and Nav2 status. While the joystick is actively driving, autonomous nav-mode changes from Nav2 or the obstacle-recovery behaviors are held off — the selected mode stays in effect until you release the stick. Safe Mode is off by default; when enabled it uses the LiDAR to limit or block forward/lateral movement toward nearby obstacles, without switching nav mode or taking control away from you.
 
+<p align="center">
+  <img src="images/joystick_hexapod.png" width="50%"/>
+</p>
+
 ### Nav2 goal picker (`nav_goal_gui.py`)
 
 Boot the robot from the GUI, then click and drag on the map to send a goal with a heading (drag sets the direction the robot should end up facing). **Cancel Goal** aborts the active goal. The map view shows the live SLAM/Nav2 map, the saved-map overlay (if any), the local costmap-derived clearance color, the planned path, and the robot's current state — all colour-coded. See [System Architecture](#system-architecture) for what the GUI does automatically while a goal is active (lateral optimization, final-approach correction, stuck-goal recovery).
+
+<p align="center">
+  <img src="images/nav_goal_gui.png" width="50%"/>
+</p>
 
 ---
 
@@ -243,6 +251,12 @@ Boot the robot from the GUI, then click and drag on the map to send a goal with 
 - `world:=living_room` (**default**) — bundled, offline, no extra setup. A single furnished room (sofa, coffee table, chairs, TV stand, lamp, bookshelf, rug, posters, seated visitor models) enclosed by walls.
 - `world:=obstacle_arena` — bundled, offline. A walled arena scattered with boxes, cylinders, and spheres of varying sizes, intended for gait and obstacle-avoidance testing rather than realism.
 - `world:=small_house` — the AWS RoboMaker Small House world; a full multi-room house. Requires the one-time clone below. Significantly heavier than the other two worlds — its larger floor plan, furnished rooms, and additional simulated objects increase rendering, sensor, and physics load, so a more capable GPU/system is recommended when using it.
+
+<p align="center">
+  <img src="images/living_room.png" width="30%"/>
+  <img src="images/obstacle_arena.png" width="30%"/>
+  <img src="images/small_house.png" width="30%"/>
+</p>
 
 One-time setup for `small_house`:
 ```bash
@@ -257,6 +271,11 @@ git clone -b ros2 https://github.com/aws-robotics/aws-robomaker-small-house-worl
 ### LiDAR
 
 720 samples over 360°, 15 Hz, range 0.10–12.0 m, mounted on `base_link`. The raw bridged topic `/scan_bridge` carries a frame ID that doesn't match ROS's TF tree; use `/scan` (relayed and re-framed by the `ScanRelay` node inside `hexapod_runner.py`) instead. That relay also drops scans while the robot's body tilt exceeds 15°, so a stumble or a stair-step in the gait doesn't feed a corrupted, tilted scan into SLAM or Nav2's costmaps.
+
+<p align="center">
+  <img src="images/on_lidar_visual.png" width="45%"/>
+  <img src="images/off_lidar_visual.png" width="45%"/>
+</p>
 
 Enabled by default. Disable it with `lidar:=false`:
 ```bash
@@ -295,6 +314,15 @@ The bundled config (`src/hexapod_ws/rviz/hexapod.rviz`) includes: the robot mode
 ## SLAM (Mapping)
 
 Launched automatically whenever `nav2` is not `true` (i.e. by default, until a saved map exists). SLAM Toolbox runs in asynchronous mapping mode against `/scan`, publishing `map -> odom`.
+
+<p align="center">
+  <img src="images/pre_mapping.png" width="80%"/>
+</p>
+<p align="center">
+  <img src="images/living_room_map.png" width="30%"/>
+  <img src="images/obstacle_arena_map.png" width="30%"/>
+  <img src="images/small_house_map.png" width="30%"/>
+</p>
 
 ### Continuing a mapping session
 
