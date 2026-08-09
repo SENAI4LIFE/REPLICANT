@@ -116,10 +116,13 @@ This repository simulates Tiffany, a 6-legged (hexapod) robot, in Gazebo and dri
 <p align="center">
   <img src="images/topview_tiffany_onshape.png" width="45%"/>
 </p>
+
+### Environment Snapshots
+
 <p align="center">
   <img src="images/deep_learning.png" width="30%"/>
-  <img src="images/overfitting.png" width="30%"/>
   <img src="images/reinforcement_learning.png" width="30%"/>
+  <img src="images/overfitting.png" width="30%"/>
 </p>
 
 ## Video Demonstrations
