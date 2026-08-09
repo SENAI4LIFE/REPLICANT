@@ -24,7 +24,7 @@ Hardware repo: https://github.com/Penguin-Lab/tiffany
 - [Requirements](#requirements)
 - [Features](#features)
 - [Gallery](#gallery)
-- [Video Demonstrations](#video-demonstrations)
+- [Video Demonstration](#video-demonstration)
 - [Quick Start](#quick-start)
 - [Installation](#installation)
 - [Build](#build)
@@ -125,9 +125,11 @@ This repository simulates Tiffany, a 6-legged (hexapod) robot, in Gazebo and dri
   <img src="images/overfitting.png" width="30%"/>
 </p>
 
-## Video Demonstrations
+## Video Demonstration
 
-https://github.com/user-attachments/assets/fb523efb-f846-4eb2-9485-71d3766b2668
+<p align="center">
+  <video src="https://github.com/user-attachments/assets/fb523efb-f846-4eb2-9485-71d3766b2668" controls width="720"></video>
+</p>
 
 ---
 
