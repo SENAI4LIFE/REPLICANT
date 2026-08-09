@@ -13,7 +13,7 @@ Hardware repo: https://github.com/Penguin-Lab/tiffany
 <!-- Gallery placeholder: screenshots/GIFs of Tiffany walking, RViz, and Gazebo go here -->
 <p align="center">
 <p align="center">
-  <video src="images/menace.mp4" width="80%" controls></video>
+  <video src="images/menace.gif" width="80%" controls></video>
 </p>
 <p align="center"><a href="images/menace.mp4">▶ menace.mp4</a></p>
 
