@@ -12,10 +12,8 @@ Hardware repo: https://github.com/Penguin-Lab/tiffany
 
 <!-- Gallery placeholder: screenshots/GIFs of Tiffany walking, RViz, and Gazebo go here -->
 <p align="center">
-<p align="center">
-  <video src="images/menace.gif" width="80%" controls></video>
+  <img src="images/menace.gif" width="80%" alt="Tiffany hexapod demo"/>
 </p>
-<p align="center"><a href="images/menace.gif">▶ menace.gif</a></p>
 
 ---
 
@@ -132,7 +130,6 @@ This repository simulates Tiffany, a 6-legged (hexapod) robot, in Gazebo and dri
 <p align="center">
   <video src="images/laboratoriya.mp4" controls width="720"></video>
 </p>
-<p align="center"><a href="images/laboratoriya.mp4">▶ laboratoriya.mp4</a></p>
 
 ---
 
