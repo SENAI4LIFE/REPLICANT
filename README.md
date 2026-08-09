@@ -127,9 +127,7 @@ This repository simulates Tiffany, a 6-legged (hexapod) robot, in Gazebo and dri
 
 ## Video Demonstrations
 
-<p align="center">
-  <video src="images/laboratoriya.mp4" controls width="720"></video>
-</p>
+https://github.com/user-attachments/assets/fb523efb-f846-4eb2-9485-71d3766b2668
 
 ---
 
