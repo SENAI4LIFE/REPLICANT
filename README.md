@@ -182,7 +182,55 @@ Clone the repository into a colcon workspace (the repo root itself is the worksp
 git clone https://github.com/SENAI4LIFE/tiffany_gazebo.git && cd tiffany_gazebo
 ```
 
-Install ROS 2 Jazzy (see [Requirements](#requirements)) and Gazebo Harmonic, then the workspace's remaining ROS and Python dependencies:
+The dependency list in the next step is long because it spans four unrelated layers of the stack, each pulled in for a different reason. Installing them as one flat `apt install` line (as [Quick Start](#quick-start) does) is fine for getting moving fast, but it's worth understanding what each group is actually for, since a failure in one of them tends to surface much later, in a confusing place.
+
+<p align="center">
+<svg width="100%" viewBox="0 0 680 420" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>Installation dependency map</title>
+<desc>Groups the apt install packages by role: ROS 2 core, Gazebo bridge, Nav2 and SLAM, and Python/GUI tooling, all feeding into colcon build.</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#73726c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+
+<rect x="40" y="40" width="290" height="110" rx="12" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+<text x="56" y="66" font-family="sans-serif" font-size="14" font-weight="500" fill="#0C447C">ROS 2 core</text>
+<text x="56" y="86" font-family="sans-serif" font-size="12" fill="#185FA5">ros-jazzy-desktop</text>
+<text x="56" y="104" font-family="sans-serif" font-size="12" fill="#185FA5">robot-state-publisher, xacro</text>
+<text x="56" y="122" font-family="sans-serif" font-size="12" fill="#185FA5">rviz2, ros2-control(lers)</text>
+
+<rect x="350" y="40" width="290" height="110" rx="12" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="366" y="66" font-family="sans-serif" font-size="14" font-weight="500" fill="#085041">Gazebo bridge</text>
+<text x="366" y="86" font-family="sans-serif" font-size="12" fill="#0F6E56">ros-gz</text>
+<text x="366" y="104" font-family="sans-serif" font-size="12" fill="#0F6E56">gz-ros2-control</text>
+
+<rect x="40" y="180" width="290" height="110" rx="12" fill="#FAECE7" stroke="#993C1D" stroke-width="0.5"/>
+<text x="56" y="206" font-family="sans-serif" font-size="14" font-weight="500" fill="#712B13">Nav2 and SLAM</text>
+<text x="56" y="226" font-family="sans-serif" font-size="12" fill="#993C1D">navigation2</text>
+<text x="56" y="244" font-family="sans-serif" font-size="12" fill="#993C1D">slam-toolbox</text>
+
+<rect x="350" y="180" width="290" height="110" rx="12" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/>
+<text x="366" y="206" font-family="sans-serif" font-size="14" font-weight="500" fill="#3C3489">Python and GUI</text>
+<text x="366" y="226" font-family="sans-serif" font-size="12" fill="#534AB7">python3-pyqt5, python3-yaml</text>
+<text x="366" y="244" font-family="sans-serif" font-size="12" fill="#534AB7">colcon-common-extensions</text>
+<text x="366" y="262" font-family="sans-serif" font-size="12" fill="#534AB7">catkin-pkg, lark, empy, jinja2</text>
+
+<rect x="195" y="330" width="290" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="340" y="350" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="500" fill="#2C2C2A">colcon build</text>
+<text x="340" y="368" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#444441">all four groups feed the build</text>
+
+<line x1="185" y1="150" x2="230" y2="330" stroke="#73726c" stroke-width="0.5" marker-end="url(#arrow)"/>
+<line x1="495" y1="150" x2="450" y2="330" stroke="#73726c" stroke-width="0.5" marker-end="url(#arrow)"/>
+<line x1="185" y1="290" x2="260" y2="330" stroke="#73726c" stroke-width="0.5" marker-end="url(#arrow)"/>
+<line x1="495" y1="290" x2="420" y2="330" stroke="#73726c" stroke-width="0.5" marker-end="url(#arrow)"/>
+</svg>
+</p>
+
+- **ROS 2 core** (`ros-jazzy-desktop`, `robot-state-publisher`, `xacro`, `rviz2`, `ros2-control`/`ros2-controllers`) is the base middleware: message passing, TF, the URDF/xacro toolchain that builds Tiffany's robot description, RViz for visualization, and the `ros2_control` framework that `hexapod_runner.py`'s `ForwardCommandController` runs on top of. Nothing else in this repo works without this layer.
+- **Gazebo bridge** (`ros-gz`, `gz-ros2-control`) connects ROS 2 to Gazebo Sim 8 (Harmonic) itself: the `ros_gz_bridge` topic/message translation this repo's `config/bridge*.yaml` files configure, and the plugin that lets `ros2_control` drive joints inside the simulator instead of on real hardware.
+- **Nav2 and SLAM** (`navigation2`, `slam-toolbox`) are the two big autonomy stacks referenced throughout this README's [SLAM](#slam-mapping) and [Autonomous Navigation](#autonomous-navigation-nav2) sections. They're independent of the gait engine and only get exercised once you launch with SLAM or `nav2:=true`.
+- **Python and GUI** (`python3-pyqt5`, `python3-yaml`, `python3-colcon-common-extensions`, `python3-catkin-pkg`, `python3-lark`, `python3-empy`, `python3-jinja2`, `python3-typeguard`) covers the interpreter-level pieces: PyQt5 for `nav_goal_gui.py` and `joystick_hexapod.py`, PyYAML for reading this repo's config files, and the rest are colcon's own build-time dependencies for generating ROS interfaces and CMake glue.
+
+All four groups are required for a full launch (Gazebo, RViz, SLAM/Nav2, and the PyQt5 GUIs), which is why Quick Start installs them together; they're broken out here so a failure can be traced to the right layer instead of treated as one opaque wall of package names.
 
 ```bash
 sudo apt install -y ros-jazzy-desktop ros-jazzy-ros-gz ros-jazzy-gz-ros2-control ros-jazzy-ros2-control \
