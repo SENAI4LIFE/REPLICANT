@@ -87,7 +87,7 @@ This repository simulates Tiffany, a 6-legged (hexapod) robot, in Gazebo and dri
 
 ### Recommended hardware
 
-- GPU recommended for Gazebo's rendering and the camera/LiDAR sensors. Not required if launching with `camera:=false` (LiDAR-only workloads are lighter).
+- GPU recommended for Gazebo's rendering and the camera/LiDAR sensors. Less demanding with `camera:=false` (LiDAR-only workloads are lighter).
 - Different worlds have different computational cost: the bundled `obstacle_arena` is lightweight (primitive shapes only), `living_room` (the default) adds furniture meshes, and `small_house` is the heaviest of the three: its larger floor plan, furnished rooms, and additional simulated objects increase rendering, sensor, and physics load, so a more capable GPU/system is recommended when using it. No specific hardware numbers are prescribed; scale expectations to the world you choose.
 
 ## Features
